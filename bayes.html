@@ -1,0 +1,783 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A Triagem do Compressor — Naive Bayes · SENAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#222D3B; --bg2:#1B2531; --bg3:#273343;
+ --ink:#E8EEF4; --muted:#93A4B7; --faint:#5E7186;
+ --line:rgba(143,164,183,.12); --bru:rgba(143,164,183,.55);
+ --v1:#9168D6; --v2:#4F86C6; --v3:#2FB89A; --v4:#56C877; --v5:#B5DC4A; --v6:#F4ED45;
+ --prep:#9168D6; --trein:#4F86C6; --aval:#2FB89A; --dec:#B5DC4A;
+ --c1:#4F86C6; --c2:#B5DC4A; --c3:#9168D6; --c4:#2FB89A;
+ --good:#56C877; --bad:#F4ED45;
+ --serif:'Lora',Georgia,serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+ --spectral:linear-gradient(90deg,var(--v1),var(--v2),var(--v3),var(--v4),var(--v5),var(--v6));
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:var(--body);color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased;background:var(--bg)}
+.deck{position:fixed;inset:0;background:
+  linear-gradient(rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  linear-gradient(90deg,rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  radial-gradient(1100px 700px at 80% 8%, rgba(47,184,154,.06), transparent 60%),
+  radial-gradient(900px 650px at 10% 92%, rgba(145,104,214,.06), transparent 60%),
+  linear-gradient(160deg,var(--bg),var(--bg2))}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:6vh 6.5vw 7vh;opacity:0;transition:opacity .5s}
+.slide.active{display:flex;opacity:1}
+.frame{position:relative;--c:var(--bru);background:
+  linear-gradient(var(--c),var(--c)) 0 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 0 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 100%/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 100%/2px 18px no-repeat}
+.eyebrow{font-family:var(--mono);font-size:clamp(11px,1.05vw,13px);letter-spacing:3px;text-transform:uppercase;color:var(--v3);display:flex;align-items:center;gap:12px;margin-bottom:2.2vh}
+.eyebrow::before{content:"";width:30px;height:2px;background:var(--spectral)}
+.eyebrow.prep{color:var(--prep)} .eyebrow.trein{color:var(--trein)}
+.eyebrow.aval{color:var(--aval)} .eyebrow.dec{color:var(--dec)}
+.title{font-family:var(--serif);font-weight:600;font-size:clamp(26px,4.1vw,52px);line-height:1.06;letter-spacing:-.5px}
+.title.sm{font-size:clamp(23px,3.2vw,40px)}
+.spectral-text{background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{font-size:clamp(14.5px,1.6vw,19px);color:var(--muted);max-width:48ch;line-height:1.55;margin-top:1.8vh}
+.lede .hl{color:var(--ink);font-weight:500}
+.cap{font-family:var(--mono);font-size:clamp(11.5px,1.1vw,13.5px);color:var(--muted);line-height:1.5}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,3.4vw,54px);align-items:center;flex:1;min-height:0}
+.cols.r{grid-template-columns:1.06fr .94fr}.cols.l{grid-template-columns:.94fr 1.06fr}
+.flush{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+.viz{width:100%;display:flex;align-items:center;justify-content:center;min-height:0}
+.viz svg{width:100%;height:auto;max-height:52vh;display:block;overflow:visible}
+.note{padding:14px 18px;margin-top:13px}
+.note .nl{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;color:var(--v3)}
+.note .nb{font-size:13.5px;color:#D6DEE7;line-height:1.5}
+.note.warn .nl{color:var(--v6)} .note.ok .nl{color:var(--v4)} .note.prep .nl{color:var(--prep)}
+.note.trein .nl{color:var(--trein)} .note.dec .nl{color:var(--dec)}
+.rules{list-style:none;margin-top:6px}
+.rules li{position:relative;padding-left:20px;margin-bottom:10px;font-size:clamp(13px,1.3vw,16px);color:#D2DAE2;max-width:46ch;line-height:1.45}
+.rules li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:2px;background:var(--c1)}
+.rules li.b2::before{background:var(--c2)}.rules li.b3::before{background:var(--c3)}
+.rules li.b4::before{background:var(--c4)}.rules li.bad::before{background:var(--v6)}
+.rules li .k{color:var(--ink);font-weight:600}
+.rules li .hl{color:var(--ink);font-weight:500}
+.eqbox{padding:16px 22px;margin:12px 0;display:inline-block}
+.eq{font-family:var(--mono);font-size:clamp(14px,1.5vw,19px);color:var(--ink);line-height:1.9;white-space:nowrap}
+.eq .n{color:var(--v3)} .eq .g{color:var(--faint)} .eq .y{color:var(--v6)}
+.eqn{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:2px;display:block;margin-bottom:6px}
+.boxes{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;width:100%}
+.boxes.t3{grid-template-columns:repeat(3,1fr)}
+.box{padding:22px 20px;border-radius:6px;background:rgba(20,28,38,.55)}
+.box .n{font-family:var(--mono);font-size:11.5px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.box .t{font-family:var(--serif);font-weight:600;font-size:clamp(17px,1.7vw,22px);margin-bottom:8px}
+.box .d{font-size:13.5px;color:var(--muted);line-height:1.5}
+.box.k1{border-top:2px solid var(--prep)}.box.k1 .n{color:var(--prep)}
+.box.k2{border-top:2px solid var(--trein)}.box.k2 .n{color:var(--trein)}
+.box.k3{border-top:2px solid var(--aval)}.box.k3 .n{color:var(--aval)}
+.box.k4{border-top:2px solid var(--dec)}.box.k4 .n{color:var(--dec)}
+.itable{display:grid;grid-template-columns:1.05fr .95fr 1fr 1.05fr;gap:0;width:100%;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.itable .h{font-family:var(--mono);font-size:11.5px;letter-spacing:1px;text-transform:uppercase;padding:13px 15px;color:var(--ink);background:rgba(20,28,38,.7);border-bottom:1px solid var(--line)}
+.itable .c{padding:13px 15px;font-size:13px;color:#D2DAE2;border-bottom:1px solid var(--line);display:block;line-height:1.45}
+.itable .c b{color:var(--ink);font-weight:600}
+.itable .cause{font-family:var(--serif);font-weight:600;color:#0F1620;background:var(--spectral);display:flex;align-items:center;justify-content:center;text-align:center}
+.mtable{display:grid;width:100%;border:1px solid var(--line);border-radius:6px;overflow:hidden;font-size:13px}
+.mtable .h{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:11px 13px;color:var(--ink);background:rgba(20,28,38,.7);border-bottom:1px solid var(--line);display:flex;align-items:center}
+.mtable .c{padding:11px 13px;color:#D2DAE2;border-bottom:1px solid var(--line);display:block;line-height:1.45}
+.mtable .c.num{font-family:var(--mono);color:var(--ink)}
+.mtable .c.win{background:rgba(86,200,119,.12)}
+.mtable .c.lose{background:rgba(244,237,69,.09)}
+.pipe{display:flex;flex-wrap:wrap;gap:10px;width:100%}
+.step{flex:1 1 0;min-width:112px;padding:12px 12px 14px;border-radius:6px;background:rgba(20,28,38,.55);border-left:3px solid var(--v3)}
+.step.p1{border-left-color:var(--prep)}.step.p2{border-left-color:var(--trein)}
+.step.p3{border-left-color:var(--aval)}.step.p4{border-left-color:var(--dec)}
+.step .sn{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--v3);margin-bottom:5px}
+.step.p1 .sn{color:var(--prep)}.step.p2 .sn{color:var(--trein)}
+.step.p3 .sn{color:var(--aval)}.step.p4 .sn{color:var(--dec)}
+.step .st{font-size:13px;color:#D2DAE2;line-height:1.3}
+.exhead{display:flex;align-items:center;gap:16px;margin-bottom:2vh}
+.stars{font-family:var(--mono);font-size:clamp(15px,1.7vw,21px);letter-spacing:3px;background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+.exlabel{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.prompt{font-size:clamp(15px,1.75vw,22px);color:var(--ink);max-width:58ch;line-height:1.45;font-weight:500}
+.prompt .data{font-family:var(--mono);color:var(--v3)}
+.prompt .hl{color:var(--v5)}
+.answer{margin-top:2.6vh;padding:20px 24px;max-width:66ch;display:none}
+.answer.show{display:block;animation:fade .4s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.answer .al{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--good);margin-bottom:9px}
+.answer .ab{font-size:clamp(13.5px,1.45vw,17px);color:#DCE7E0;line-height:1.6}
+.answer .ab b{color:var(--v5)}
+.answer .ab code{font-family:var(--mono);color:var(--v3);font-size:.92em}
+.reveal{margin-top:2.2vh;font-family:var(--mono);font-size:12px;color:var(--faint)}.reveal b{color:var(--v3)}
+.bridge{font-family:var(--mono);font-size:clamp(10.5px,1vw,12.5px);color:var(--faint);letter-spacing:1px;margin-top:1.5vh}
+.bridge b{color:var(--v3);font-weight:500}
+.counter{position:fixed;right:2.2vw;bottom:2.4vh;font-family:var(--mono);font-size:12px;color:var(--faint);z-index:30}.counter b{color:var(--v6)}
+.brand{position:fixed;left:6.5vw;bottom:2.4vh;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:2px;z-index:30}
+.progress{position:fixed;left:0;bottom:0;height:2px;z-index:30;background:var(--spectral);transition:width .5s}
+.hint{position:fixed;right:2.2vw;top:2.4vh;font-family:var(--mono);font-size:11px;color:var(--faint);z-index:30}
+.defs{position:absolute;width:0;height:0;overflow:hidden}
+@media(max-width:860px){.cols,.cols.r,.cols.l,.boxes,.boxes.t3{grid-template-columns:1fr;gap:14px}.itable{grid-template-columns:1fr}}
+
+@keyframes slideEnter{from{opacity:0;transform:translateX(calc(var(--dir,1)*48px))}to{opacity:1;transform:none}}
+@keyframes slideLeave{from{opacity:1;transform:none}to{opacity:0;transform:translateX(calc(var(--dir,1)*-48px)) scale(.99)}}
+@keyframes reveal{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes popIn{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes growUp{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes growRight{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes drawln{to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:0}to{opacity:var(--o,1)}}
+
+.slide.active{animation:slideEnter .6s cubic-bezier(.22,.61,.36,1) both;z-index:2}
+.slide.leaving{display:flex!important;animation:slideLeave .42s ease both;z-index:1;pointer-events:none}
+.slide.active .eyebrow{animation:reveal .55s .02s both}
+.slide.active .title{animation:reveal .6s .12s both}
+.slide.active .lede{animation:reveal .6s .22s both}
+.slide.active .cap{animation:reveal .6s .5s both}
+.slide.active .bridge{animation:reveal .6s .62s both}
+.slide.active .eqbox{animation:reveal .6s .3s both}
+.slide.active .exhead{animation:reveal .55s .1s both}
+.slide.active .prompt{animation:reveal .6s .22s both}
+.slide.active .reveal{animation:reveal .6s .5s both}
+.slide.active .note{animation:reveal .65s .42s both}
+.slide.active .rules li{animation:reveal .5s both}
+.slide.active .rules li:nth-child(1){animation-delay:.28s}
+.slide.active .rules li:nth-child(2){animation-delay:.38s}
+.slide.active .rules li:nth-child(3){animation-delay:.48s}
+.slide.active .rules li:nth-child(4){animation-delay:.58s}
+.slide.active .rules li:nth-child(5){animation-delay:.68s}
+.slide.active .boxes .box{animation:reveal .6s both}
+.slide.active .boxes .box:nth-child(1){animation-delay:.24s}
+.slide.active .boxes .box:nth-child(2){animation-delay:.36s}
+.slide.active .boxes .box:nth-child(3){animation-delay:.48s}
+.slide.active .boxes .box:nth-child(4){animation-delay:.6s}
+.slide.active .itable .h,.slide.active .mtable .h{animation:reveal .5s .2s both}
+.slide.active .itable .c,.slide.active .mtable .c{animation:fadein .7s .42s both}
+.slide.active .pipe .step{animation:reveal .5s both}
+.slide.active .pipe .step:nth-child(1){animation-delay:.22s}
+.slide.active .pipe .step:nth-child(2){animation-delay:.31s}
+.slide.active .pipe .step:nth-child(3){animation-delay:.40s}
+.slide.active .pipe .step:nth-child(4){animation-delay:.49s}
+.slide.active .pipe .step:nth-child(5){animation-delay:.58s}
+.slide.active .pipe .step:nth-child(6){animation-delay:.67s}
+.slide.active .pipe .step:nth-child(7){animation-delay:.76s}
+.slide.active .viz{animation:reveal .65s .18s both}
+.slide.active .viz .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:drawln 1s .45s ease forwards}
+.slide.active .viz .draw.d2{animation-delay:.95s}
+.slide.active .viz .draw.d3{animation-delay:1.35s}
+.slide.active .viz .draw.stag{animation-duration:.6s;animation-delay:calc(.45s + var(--i,0)*.13s)}
+.slide.active .viz .pop{transform-box:fill-box;transform-origin:center;animation:popIn .5s both;animation-delay:calc(.5s + var(--i,0)*0.05s)}
+.slide.active .viz .grow{transform-box:fill-box;transform-origin:bottom;animation:growUp .7s both;animation-delay:calc(.45s + var(--i,0)*.09s)}
+.slide.active .viz .growx{transform-box:fill-box;transform-origin:left;animation:growRight .7s both;animation-delay:calc(.5s + var(--i,0)*.11s)}
+.slide.active .viz .fade{animation:fadein .8s .5s both}
+.slide.active .viz .fade2{animation:fadein .8s 1.1s both}
+.slide.active .viz .fade3{animation:fadein .8s 1.6s both}
+
+@media (prefers-reduced-motion: reduce){
+ .slide.active,.slide.leaving{animation:none!important}
+ .slide.active *{animation:none!important;opacity:1!important;transform:none!important;stroke-dashoffset:0!important}
+}
+</style></head><body>
+<svg class="defs" aria-hidden="true"><defs>
+  <linearGradient id="gEspectro" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#9168D6"/><stop offset=".2" stop-color="#4F86C6"/>
+    <stop offset=".4" stop-color="#2FB89A"/><stop offset=".6" stop-color="#56C877"/>
+    <stop offset=".8" stop-color="#B5DC4A"/><stop offset="1" stop-color="#F4ED45"/></linearGradient>
+  <linearGradient id="gAzul" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#4F86C6" stop-opacity=".42"/><stop offset="1" stop-color="#4F86C6" stop-opacity=".05"/></linearGradient>
+  <linearGradient id="gAmar" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#F4ED45" stop-opacity=".34"/><stop offset="1" stop-color="#F4ED45" stop-opacity=".04"/></linearGradient>
+  <marker id="setaB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M0 0 L10 5 L0 10 z" fill="#93A4B7"/></marker>
+</defs></svg>
+<div class="deck" id="deck">
+<section class="slide"><div class="eyebrow trein">naive bayes · machine learning aplicada à indústria</div>
+<div class="flush"><h1 class="title">A Triagem do <span class="spectral-text">Compressor</span></h1>
+<p class="lede">A árvore fazia perguntas. A floresta juntava quinhentas opiniões. Este aqui não faz pergunta nenhuma:
+ele guarda, de cada sensor, <span class="hl">como é a leitura típica</span> quando a máquina para e quando não para —
+e depois multiplica.</p>
+<div class="cap" style="margin-top:4vh">PREPARAR · TREINAR · AVALIAR · DECIDIR</div>
+<div class="cap">outra máquina da mesma fábrica · a central de ar comprimido · quando ela para, a fábrica para</div></div></section>
+<section class="slide"><div class="eyebrow prep">preparar · a pergunta que paga a conta</div>
+<div class="cols"><div><h2 class="title sm">Aciono a equipe para o próximo turno?</h2>
+<p class="lede">A central tem três compressores. O ar comprimido move as prensas, as injetoras e a paletizadora —
+tudo. Antes de escolher modelo, métrica ou limiar, existe <span class="hl">uma pergunta de dinheiro</span>,
+e ela não sai do computador: sai da fábrica.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b2"><span class="k">Errar para mais</span> — a equipe entra fora de escala, a central roda 40 min no
+reserva e ninguém acha nada. <span class="hl">R$ 1.800.</span></li>
+<li class="bad"><span class="k">Errar para menos</span> — o compressor para sem aviso e a planta inteira para
+por cerca de uma hora. <span class="hl">R$ 18.000.</span></li></ul>
+<div class="note frame prep"><div class="nl">o número que sai daqui</div>
+<div class="nb">Um erro custa dez vezes o outro. Guarde a razão: ela vai escolher o limiar no fim da aula, e é a
+única coisa desta tela que nenhum algoritmo consegue descobrir sozinho.</div></div></div>
+<div class="viz"><svg viewBox="0 0 520 300" role="img">
+<text x="130" y="30" fill="#4F86C6" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">ALARME FALSO</text>
+<text x="390" y="30" fill="#F4ED45" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">PARADA NÃO PROGRAMADA</text>
+<rect class="grow" style="--i:0" x="95" y="228" width="70" height="30" fill="#4F86C6" opacity=".75" rx="3"/>
+<rect class="grow" style="--i:1" x="355" y="58" width="70" height="200" fill="#F4ED45" opacity=".75" rx="3"/>
+<path class="draw" pathLength="1" d="M 60 258 L 460 258" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<text x="130" y="220" fill="#E8EEF4" font-size="15" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">R$ 1.800</text>
+<text x="390" y="50" fill="#E8EEF4" font-size="15" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">R$ 18.000</text>
+<g class="fade2"><text x="260" y="150" fill="#B5DC4A" font-size="22" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">10 ×</text>
+<text x="260" y="285" fill="#5E7186" font-size="11" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">limiar de indiferença = 1.800 ÷ 19.800 = 0,091</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow prep">preparar · o mapa de sempre</div>
+<div class="flush"><h2 class="title sm">Quatro etapas, terceira aula seguida</h2>
+<p class="lede">O algoritmo é novo. O método de trabalho é o mesmo — e a pergunta de desempate continua sendo
+<span class="hl">"a etapa anterior está mesmo pronta?"</span></p>
+<div class="boxes" style="margin-top:3.4vh">
+<div class="box frame k1"><div class="n">01 · preparar</div><div class="t">Limpar e precificar</div>
+<div class="d">Ausentes, leituras impossíveis — e o preço dos dois erros. Aqui muda uma coisa: a exigência de
+pré-processamento depende do modelo.</div></div>
+<div class="box frame k2"><div class="n">02 · treinar</div><div class="t">Prior e sinos</div>
+<div class="d">Contar quantos param. Medir média e desvio de cada sensor em cada classe. Multiplicar. É tudo.</div></div>
+<div class="box frame k3"><div class="n">03 · avaliar</div><div class="t">Ordem e número</div>
+<div class="d">Ele ordena bem. Mas o número que ele devolve não é uma probabilidade honesta — e isso tem
+consequência.</div></div>
+<div class="box frame k4"><div class="n">04 · decidir</div><div class="t">O limiar e o leitor</div>
+<div class="d">A conta em reais escolhe o corte. E a pergunta final não é qual modelo é melhor: é quem vai
+ler a saída.</div></div></div></div></section>
+<section class="slide"><div class="eyebrow prep">preparar · a base como ela chega</div>
+<div class="cols"><div><h2 class="title sm">Duas sujeiras, dois tratamentos</h2>
+<p class="lede">Base real não chega limpa. E os dois defeitos desta aqui pedem <span class="hl">respostas
+diferentes</span> — confundi-los é o erro de estreia de quase todo mundo.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b1"><span class="k">63 turnos sem vibração</span> — o acelerômetro não coletou. Célula vazia,
+e o Python sabe que está vazia.</li>
+<li class="bad"><span class="k">23 pressões impossíveis</span> — 14 leituras de 0,00 bar e 9 de 99,90 bar.
+O transdutor descalibrou. A célula não está vazia: está <span class="hl">mentindo com convicção</span>.</li>
+<li class="b3"><span class="k">Sobram 1.314 turnos</span> — 6% da base foi embora, e é barato: o que sobra é
+confiável.</li></ul>
+<div class="note frame warn"><div class="nl">o cuidado</div><div class="nb">O ausente o computador acha sozinho.
+O impossível só você acha — porque só você sabe que um compressor não roda a zero bar. Nenhuma biblioteca
+tem essa informação.</div></div></div>
+<div class="viz"><svg viewBox="0 0 520 300" role="img">
+<path class="draw" pathLength="1" d="M 60 285 L 480 285" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/><path class="draw" pathLength="1" d="M 60 285 L 60 25" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<text x="270" y="300" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">1.400 turnos, na ordem em que foram registrados</text>
+<text x="40" y="150" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">bar</text>
+<circle class="pop" style="--i:0" cx="70" cy="148" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="72" cy="123" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="75" cy="170" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="78" cy="128" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="80" cy="156" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="82" cy="156" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="85" cy="109" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="88" cy="147" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="90" cy="151" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="92" cy="134" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="95" cy="126" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="98" cy="151" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="100" cy="137" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="102" cy="171" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="105" cy="158" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="108" cy="160" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="110" cy="179" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="112" cy="183" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="115" cy="185" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="118" cy="155" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="120" cy="154" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="122" cy="157" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="125" cy="148" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="128" cy="179" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="130" cy="152" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="132" cy="145" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="135" cy="134" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="138" cy="168" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="140" cy="159" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="142" cy="194" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="145" cy="161" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="148" cy="198" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="150" cy="181" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="152" cy="126" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="155" cy="198" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="158" cy="133" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="160" cy="143" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="162" cy="157" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="165" cy="140" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="168" cy="139" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="170" cy="127" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="172" cy="155" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="175" cy="163" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="178" cy="163" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="180" cy="171" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="182" cy="151" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="185" cy="167" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="188" cy="127" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="190" cy="191" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="192" cy="174" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="195" cy="171" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="198" cy="195" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="200" cy="109" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="202" cy="202" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="205" cy="156" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="208" cy="161" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="210" cy="114" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="212" cy="193" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="215" cy="127" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="218" cy="166" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="220" cy="153" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="222" cy="165" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="225" cy="136" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="228" cy="175" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="230" cy="152" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="232" cy="142" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="235" cy="110" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="238" cy="202" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="240" cy="117" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="242" cy="129" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="245" cy="160" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="248" cy="143" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="250" cy="160" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="252" cy="114" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="255" cy="145" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="258" cy="155" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="260" cy="155" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="262" cy="154" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="265" cy="154" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="268" cy="169" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="270" cy="105" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="272" cy="191" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="275" cy="228" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="278" cy="153" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="280" cy="153" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="282" cy="142" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="285" cy="154" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="288" cy="153" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="290" cy="143" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="292" cy="129" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="295" cy="160" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="298" cy="158" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="300" cy="108" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="302" cy="138" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="305" cy="171" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="308" cy="100" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="310" cy="133" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="312" cy="163" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="315" cy="175" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="318" cy="144" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="320" cy="168" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="322" cy="173" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="325" cy="178" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="328" cy="161" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="330" cy="126" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="332" cy="159" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="335" cy="181" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="338" cy="135" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="340" cy="149" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="342" cy="132" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="345" cy="124" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="348" cy="154" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="350" cy="153" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="352" cy="151" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="355" cy="175" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="358" cy="135" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="360" cy="120" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="362" cy="146" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="365" cy="155" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="368" cy="156" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="370" cy="167" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="372" cy="167" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="375" cy="159" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="378" cy="168" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="380" cy="159" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="382" cy="184" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="385" cy="142" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="388" cy="149" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="390" cy="175" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="392" cy="200" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="395" cy="150" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="398" cy="126" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="400" cy="166" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="402" cy="160" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="405" cy="162" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="408" cy="136" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:10" cx="410" cy="170" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:11" cx="412" cy="129" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:12" cx="415" cy="157" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:13" cx="418" cy="130" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:0" cx="420" cy="149" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:1" cx="422" cy="155" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:2" cx="425" cy="182" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:3" cx="428" cy="165" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:4" cx="430" cy="156" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:5" cx="432" cy="136" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:6" cx="435" cy="145" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:7" cx="438" cy="165" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="440" cy="141" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:9" cx="442" cy="129" r="2.6" fill="rgba(143,164,183,.34)"/><circle class="pop" style="--i:8" cx="120" cy="262" r="4.4" fill="#F4ED45"/><circle class="pop" style="--i:9" cx="205" cy="262" r="4.4" fill="#F4ED45"/><circle class="pop" style="--i:10" cx="300" cy="262" r="4.4" fill="#F4ED45"/><circle class="pop" style="--i:11" cx="385" cy="262" r="4.4" fill="#F4ED45"/><circle class="pop" style="--i:12" cx="430" cy="262" r="4.4" fill="#F4ED45"/><circle class="pop" style="--i:9" cx="165" cy="40" r="4.4" fill="#F4ED45"/><circle class="pop" style="--i:10" cx="260" cy="40" r="4.4" fill="#F4ED45"/><circle class="pop" style="--i:11" cx="355" cy="40" r="4.4" fill="#F4ED45"/>
+<g class="fade2"><text x="72" y="254" fill="#F4ED45" font-size="11" text-anchor="start" font-weight="600" style="font-family:'JetBrains Mono',monospace">0,00 bar — 14 leituras</text>
+<text x="72" y="32" fill="#F4ED45" font-size="11" text-anchor="start" font-weight="600" style="font-family:'JetBrains Mono',monospace">99,90 bar — 9 leituras</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow prep">preparar · a exigência muda com o modelo</div>
+<div class="cols"><div><h2 class="title sm">A árvore olhava o corte. Este olha a nuvem.</h2>
+<p class="lede">Duas semanas atrás, preparar a base era a mesma coisa para qualquer modelo. Não é mais.
+<span class="hl">Cada algoritmo cobra uma exigência diferente</span> da etapa anterior.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b2"><span class="k">Padronizar não muda nada</span> — a normal se ajusta em qualquer escala.
+Se você padronizar por hábito, o resultado é idêntico. Faça o teste.</li>
+<li class="b3"><span class="k">A forma muda tudo</span> — o modelo assume que cada sensor desenha uma sino.
+Onde a distribuição é torta, ele acredita em coisas que não existem.</li>
+<li class="bad"><span class="k">A dummy vira sino</span> — você vai dummizar o turno por hábito, e o modelo
+vai ajustar uma curva contínua a uma coluna de 0 e 1.</li></ul>
+<div class="note frame prep"><div class="nl">a pergunta que fica</div><div class="nb">"A etapa anterior está
+pronta" agora depende de qual modelo vem depois. Guardar isso vale mais que guardar o Naive Bayes.</div></div></div>
+<div class="viz"><svg viewBox="0 0 520 300" role="img">
+<path class="draw" pathLength="1" d="M 60 268 L 480 268" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/><path class="draw" pathLength="1" d="M 60 268 L 60 30" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<circle class="pop" style="--i:0" cx="230" cy="190" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:1" cx="288" cy="172" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:2" cx="227" cy="181" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:3" cx="274" cy="204" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:4" cx="230" cy="156" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:5" cx="280" cy="191" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:6" cx="302" cy="202" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:7" cx="259" cy="177" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:8" cx="329" cy="176" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:9" cx="242" cy="159" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:10" cx="264" cy="185" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:11" cx="253" cy="181" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:0" cx="269" cy="196" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:1" cx="291" cy="186" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:2" cx="215" cy="196" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:3" cx="225" cy="179" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:4" cx="224" cy="182" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:5" cx="242" cy="186" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:6" cx="348" cy="181" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:7" cx="284" cy="156" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:8" cx="255" cy="195" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:9" cx="260" cy="189" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:10" cx="265" cy="162" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:11" cx="277" cy="166" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:0" cx="311" cy="172" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:1" cx="280" cy="182" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:2" cx="287" cy="170" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:3" cx="288" cy="180" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:4" cx="295" cy="194" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:5" cx="266" cy="166" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:6" cx="282" cy="191" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:7" cx="305" cy="174" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:8" cx="276" cy="192" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:9" cx="269" cy="186" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:10" cx="267" cy="170" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:11" cx="236" cy="174" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:0" cx="277" cy="212" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:1" cx="287" cy="203" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:2" cx="282" cy="196" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:3" cx="267" cy="197" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:4" cx="308" cy="175" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:5" cx="244" cy="221" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:6" cx="268" cy="201" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:7" cx="285" cy="159" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:8" cx="325" cy="218" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:9" cx="267" cy="197" r="3.4" fill="rgba(79,134,198,.55)"/><circle class="pop" style="--i:0" cx="349" cy="115" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:1" cx="344" cy="136" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:2" cx="368" cy="142" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:3" cx="347" cy="153" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:4" cx="331" cy="143" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:5" cx="368" cy="125" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:6" cx="310" cy="115" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:7" cx="351" cy="139" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:8" cx="377" cy="113" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:9" cx="346" cy="141" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:10" cx="343" cy="90" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:11" cx="362" cy="169" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:0" cx="366" cy="114" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:1" cx="338" cy="134" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:2" cx="396" cy="140" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:3" cx="348" cy="156" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:4" cx="344" cy="162" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:5" cx="332" cy="122" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:6" cx="360" cy="154" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:7" cx="359" cy="135" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:8" cx="310" cy="118" r="3.4" fill="rgba(244,237,69,.65)"/><circle class="pop" style="--i:9" cx="334" cy="121" r="3.4" fill="rgba(244,237,69,.65)"/>
+<path class="draw d2" pathLength="1" d="M 300 34 L 300 268" stroke="#4F86C6" stroke-width="2" stroke-dasharray="6 5" fill="none"/>
+<g class="fade2"><text x="300" y="24" fill="#4F86C6" font-size="11" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">a árvore: “é maior que isto?”</text></g>
+<path class="draw d3" pathLength="1" d="M 262 182 m -52 0 a 52 44 0 1 0 104 0 a 52 44 0 1 0 -104 0" stroke="#2FB89A" stroke-width="1.8" fill="none" opacity=".8"/>
+<path class="draw d3" pathLength="1" d="M 346 130 m -40 0 a 40 34 0 1 0 80 0 a 40 34 0 1 0 -80 0" stroke="#F4ED45" stroke-width="1.8" fill="none" opacity=".8"/>
+<g class="fade3"><text x="66" y="288" fill="#2FB89A" font-size="11.5" text-anchor="start" font-weight="400" style="font-family:'JetBrains Mono',monospace">o Bayes: “de qual nuvem esta leitura parece?”</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · o primeiro peso</div>
+<div class="cols"><div><h2 class="title sm">O prior — a triagem antes da consulta</h2>
+<p class="lede">Na recepção do pronto-socorro, antes de qualquer exame, o enfermeiro já tem uma expectativa:
+a maioria das pessoas que entra ali <span class="hl">não está infartando</span>. Essa expectativa não é
+preconceito. É informação — e o modelo usa a dele.</p>
+<div class="eqbox frame"><span class="eqn">(1) O PRIOR</span>
+<div class="eq">P(parar) = <span class="n">182</span> ÷ <span class="n">1.314</span> = <span class="y">0,1382</span></div>
+<div class="eq">P(não parar) = <span class="y">0,8618</span></div></div>
+<div class="note frame trein"><div class="nl">o que é raro nesta aula</div><div class="nb">Este número não é uma
+estatística sobre o modelo: é <b>um parâmetro dentro dele</b>. Você pode imprimir na tela com
+<code>bayes.class_prior_</code>. Nenhum modelo do curso deixou você fazer isso antes.</div></div></div>
+<div class="viz"><svg viewBox="0 0 520 300" role="img">
+<circle class="pop" style="--i:0" cx="72" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:1" cx="93" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:2" cx="114" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:3" cx="135" cy="58" r="7" fill="#F4ED45"/><circle class="pop" style="--i:4" cx="156" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:5" cx="177" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:6" cx="198" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:7" cx="219" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:8" cx="240" cy="58" r="7" fill="#F4ED45"/><circle class="pop" style="--i:9" cx="261" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:10" cx="282" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:11" cx="303" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:12" cx="324" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:13" cx="345" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:14" cx="366" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:15" cx="387" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:16" cx="408" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:17" cx="429" cy="58" r="7" fill="#F4ED45"/><circle class="pop" style="--i:18" cx="450" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:19" cx="471" cy="58" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:0" cx="72" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:1" cx="93" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:2" cx="114" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:3" cx="135" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:4" cx="156" cy="87" r="7" fill="#F4ED45"/><circle class="pop" style="--i:5" cx="177" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:6" cx="198" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:7" cx="219" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:8" cx="240" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:9" cx="261" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:10" cx="282" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:11" cx="303" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:12" cx="324" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:13" cx="345" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:14" cx="366" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:15" cx="387" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:16" cx="408" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:17" cx="429" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:18" cx="450" cy="87" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:19" cx="471" cy="87" r="7" fill="#F4ED45"/><circle class="pop" style="--i:0" cx="72" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:1" cx="93" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:2" cx="114" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:3" cx="135" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:4" cx="156" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:5" cx="177" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:6" cx="198" cy="116" r="7" fill="#F4ED45"/><circle class="pop" style="--i:7" cx="219" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:8" cx="240" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:9" cx="261" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:10" cx="282" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:11" cx="303" cy="116" r="7" fill="#F4ED45"/><circle class="pop" style="--i:12" cx="324" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:13" cx="345" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:14" cx="366" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:15" cx="387" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:16" cx="408" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:17" cx="429" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:18" cx="450" cy="116" r="7" fill="#F4ED45"/><circle class="pop" style="--i:19" cx="471" cy="116" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:0" cx="72" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:1" cx="93" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:2" cx="114" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:3" cx="135" cy="145" r="7" fill="#F4ED45"/><circle class="pop" style="--i:4" cx="156" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:5" cx="177" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:6" cx="198" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:7" cx="219" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:8" cx="240" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:9" cx="261" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:10" cx="282" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:11" cx="303" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:12" cx="324" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:13" cx="345" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:14" cx="366" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:15" cx="387" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:16" cx="408" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:17" cx="429" cy="145" r="7" fill="#F4ED45"/><circle class="pop" style="--i:18" cx="450" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:19" cx="471" cy="145" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:0" cx="72" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:1" cx="93" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:2" cx="114" cy="174" r="7" fill="#F4ED45"/><circle class="pop" style="--i:3" cx="135" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:4" cx="156" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:5" cx="177" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:6" cx="198" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:7" cx="219" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:8" cx="240" cy="174" r="7" fill="#F4ED45"/><circle class="pop" style="--i:9" cx="261" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:10" cx="282" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:11" cx="303" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:12" cx="324" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:13" cx="345" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:14" cx="366" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:15" cx="387" cy="174" r="7" fill="#F4ED45"/><circle class="pop" style="--i:16" cx="408" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:17" cx="429" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:18" cx="450" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:19" cx="471" cy="174" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:0" cx="72" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:1" cx="93" cy="203" r="7" fill="#F4ED45"/><circle class="pop" style="--i:2" cx="114" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:3" cx="135" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:4" cx="156" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:5" cx="177" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:6" cx="198" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:7" cx="219" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:8" cx="240" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:9" cx="261" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:10" cx="282" cy="203" r="7" fill="#F4ED45"/><circle class="pop" style="--i:11" cx="303" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:12" cx="324" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:13" cx="345" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:14" cx="366" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:15" cx="387" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:16" cx="408" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:17" cx="429" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:18" cx="450" cy="203" r="7" fill="#F4ED45"/><circle class="pop" style="--i:19" cx="471" cy="203" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:0" cx="72" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:1" cx="93" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:2" cx="114" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:3" cx="135" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:4" cx="156" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:5" cx="177" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:6" cx="198" cy="232" r="7" fill="#F4ED45"/><circle class="pop" style="--i:7" cx="219" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:8" cx="240" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:9" cx="261" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:10" cx="282" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:11" cx="303" cy="232" r="7" fill="#F4ED45"/><circle class="pop" style="--i:12" cx="324" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:13" cx="345" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:14" cx="366" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:15" cx="387" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:16" cx="408" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:17" cx="429" cy="232" r="7" fill="#F4ED45"/><circle class="pop" style="--i:18" cx="450" cy="232" r="7" fill="rgba(143,164,183,.20)"/><circle class="pop" style="--i:19" cx="471" cy="232" r="7" fill="rgba(143,164,183,.20)"/>
+<text x="260" y="258" fill="#93A4B7" font-size="12" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">de cada 100 turnos, cerca de 14 terminam em parada</text>
+<g class="fade2"><text x="260" y="285" fill="#5E7186" font-size="11" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">o modelo já sabe disso antes de olhar sensor nenhum</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · a inversão que engana todo mundo</div>
+<div class="cols l"><div><h2 class="title sm">P(parar | leitura) não é P(leitura | parar)</h2>
+<p class="lede">O modelo mede uma coisa e você precisa da outra. O teorema de Bayes é
+<span class="hl">a ponte entre as duas</span> — e a ponte cobra pedágio: o prior.</p>
+<div class="eqbox frame"><span class="eqn">(2) O TEOREMA</span>
+<div class="eq">P(parar|leituras) = <span class="n">P(leituras|parar)</span> × <span class="n">P(parar)</span> <span class="g">÷ P(leituras)</span></div></div>
+<div class="eqbox frame"><span class="eqn">(3) O DENOMINADOR SOME</span>
+<div class="eq">peso(parar) &nbsp;&nbsp;&nbsp;= P(parar) × <span class="n">Π</span> P(leitura<tspan>ᵢ</tspan>|parar)</div>
+<div class="eq">peso(não parar) = P(não parar) × <span class="n">Π</span> P(leitura<tspan>ᵢ</tspan>|não parar)</div></div>
+<div class="eqbox frame"><span class="eqn">(4) A PROBABILIDADE</span>
+<div class="eq">P(parar|leituras) = <span class="y">peso(parar)</span> ÷ (<span class="y">peso(parar)</span> + peso(não parar))</div></div>
+<div class="bridge">o denominador é o mesmo dos dois lados — por isso ninguém precisa calculá-lo. <b>a divisão de (4) faz o serviço dele.</b></div></div>
+<div class="viz"><svg viewBox="0 0 480 320" role="img">
+<g class="fade"><rect x="30" y="40" width="180" height="76" rx="6" fill="rgba(20,28,38,.6)" stroke="#4F86C6" stroke-width="1.4"/>
+<text x="120" y="66" fill="#4F86C6" font-size="11" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">o que o modelo MEDE</text>
+<text x="120" y="92" fill="#E8EEF4" font-size="12" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">P(temperatura alta | parou)</text>
+<text x="120" y="108" fill="#B5DC4A" font-size="13" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">82%</text></g>
+<g class="fade2"><rect x="268" y="40" width="182" height="76" rx="6" fill="rgba(20,28,38,.6)" stroke="#F4ED45" stroke-width="1.4"/>
+<text x="359" y="66" fill="#F4ED45" font-size="11" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">o que VOCÊ precisa</text>
+<text x="359" y="92" fill="#E8EEF4" font-size="12" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">P(parou | temperatura alta)</text>
+<text x="359" y="108" fill="#B5DC4A" font-size="13" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">47%</text></g>
+<path class="draw d2" pathLength="1" d="M 214 78 L 262 78" stroke="#93A4B7" stroke-width="1.6" fill="none" marker-end="url(#setaB)"/>
+<g class="fade3"><text x="240" y="152" fill="#93A4B7" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">o pedágio: só 13,8% dos turnos param,</text>
+<text x="240" y="172" fill="#93A4B7" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">e 15% dos turnos normais também passam de 82 °C</text>
+<rect x="90" y="200" width="300" height="58" rx="6" fill="rgba(145,104,214,.10)" stroke="rgba(145,104,214,.5)" stroke-width="1.2"/>
+<text x="240" y="226" fill="#E8EEF4" font-size="12.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">320 turnos passaram de 82 °C.</text>
+<text x="240" y="246" fill="#B5DC4A" font-size="12.5" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">150 deles pararam. 150 ÷ 320 = 47%.</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow trein">exercício · prática guiada</div>
+<div class="exhead"><div class="stars">★☆☆☆☆</div><div class="exlabel">a inversão · aquecimento</div></div>
+<div class="flush"><p class="prompt">O relatório da manutenção diz: <span class="data">"em 82% dos turnos que
+terminaram em parada, a temperatura de saída estava acima de 82 °C"</span>. O supervisor lê isso e conclui que,
+quando a temperatura passa de 82 °C, <span class="hl">há 82% de chance de parar</span>. Onde ele errou — e qual
+é o número certo?</p>
+<div class="answer frame"><div class="al">resposta</div><div class="ab">Ele inverteu a condicional. O relatório
+mede <code>P(temperatura alta | parou)</code>; ele leu como <code>P(parou | temperatura alta)</code>. São
+perguntas diferentes porque as populações são diferentes: a primeira olha só os turnos que pararam, a segunda
+olha todos os turnos quentes. Na base: <b>320 turnos passaram de 82 °C e 150 deles pararam</b> —
+<b>47%</b>, não 82%. A diferença é o prior: paradas são raras (13,8%), e 15% dos turnos que <i>não</i> param
+também esquentam. Sem essa segunda informação, a conta não fecha.</div></div>
+<div class="reveal">pressione <b>R</b> para revelar</div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · o segundo peso</div>
+<div class="cols"><div><h2 class="title sm">Duas sinos por sensor. É o modelo inteiro.</h2>
+<p class="lede">Para cada sensor, o treino guarda <span class="hl">quatro números</span>: média e desvio quando
+parou, média e desvio quando não parou. Depois é só perguntar de qual das duas curvas a leitura de hoje
+parece mais.</p>
+<div class="eqbox frame"><span class="eqn">TEMPERATURA DE SAÍDA · O QUE O TREINO GUARDOU</span>
+<div class="eq"><span class="g">não parou:</span> média <span class="n">77,28</span> °C &nbsp; desvio <span class="n">4,94</span></div>
+<div class="eq"><span class="g">parou:</span>&nbsp;&nbsp;&nbsp;&nbsp; média <span class="y">84,73</span> °C &nbsp; desvio <span class="y">3,70</span></div></div>
+<div class="note frame trein"><div class="nl">a métrica que sai de graça</div><div class="nb">A distância entre
+as duas médias, medida em desvios, é <b>1,71</b>. Guarde essa conta: ela é o diagnóstico de variável do Naive
+Bayes, e não precisa de permutação, de floresta nem de nada.</div></div></div>
+<div class="viz"><svg viewBox="0 0 540 300" role="img">
+<path class="draw" pathLength="1" d="M 50 256 L 510 256" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<path class="fade" d="M50.0 255.7 L55.1 255.6 L60.2 255.5 L65.3 255.3 L70.4 255.0 L75.6 254.7 L80.7 254.3 L85.8 253.8 L90.9 253.2 L96.0 252.4 L101.1 251.4 L106.2 250.3 L111.3 248.8 L116.4 247.1 L121.6 245.1 L126.7 242.7 L131.8 240.0 L136.9 236.8 L142.0 233.1 L147.1 229.0 L152.2 224.4 L157.3 219.4 L162.4 213.8 L167.6 207.9 L172.7 201.5 L177.8 194.7 L182.9 187.7 L188.0 180.5 L193.1 173.2 L198.2 165.9 L203.3 158.8 L208.4 152.0 L213.6 145.6 L218.7 139.7 L223.8 134.6 L228.9 130.2 L234.0 126.7 L239.1 124.2 L244.2 122.7 L249.3 122.3 L254.4 123.0 L259.6 124.7 L264.7 127.5 L269.8 131.2 L274.9 135.8 L280.0 141.2 L285.1 147.2 L290.2 153.7 L295.3 160.6 L300.4 167.8 L305.6 175.1 L310.7 182.3 L315.8 189.5 L320.9 196.5 L326.0 203.1 L331.1 209.4 L336.2 215.3 L341.3 220.7 L346.4 225.7 L351.6 230.1 L356.7 234.1 L361.8 237.6 L366.9 240.7 L372.0 243.4 L377.1 245.7 L382.2 247.6 L387.3 249.2 L392.4 250.6 L397.6 251.7 L402.7 252.6 L407.8 253.4 L412.9 254.0 L418.0 254.4 L423.1 254.8 L428.2 255.1 L433.3 255.3 L438.4 255.5 L443.6 255.6 L448.7 255.7 L453.8 255.8 L458.9 255.9 L464.0 255.9 L469.1 255.9 L474.2 256.0 L479.3 256.0 L484.4 256.0 L489.6 256.0 L494.7 256.0 L499.8 256.0 L504.9 256.0 L510.0 256.0 L510.0 256 L50.0 256 Z" fill="url(#gAzul)"/>
+<path class="fade2" d="M50.0 256.0 L55.1 256.0 L60.2 256.0 L65.3 256.0 L70.4 256.0 L75.6 256.0 L80.7 256.0 L85.8 256.0 L90.9 256.0 L96.0 256.0 L101.1 256.0 L106.2 256.0 L111.3 256.0 L116.4 256.0 L121.6 256.0 L126.7 256.0 L131.8 256.0 L136.9 256.0 L142.0 256.0 L147.1 256.0 L152.2 256.0 L157.3 256.0 L162.4 255.9 L167.6 255.9 L172.7 255.9 L177.8 255.8 L182.9 255.7 L188.0 255.5 L193.1 255.3 L198.2 254.9 L203.3 254.5 L208.4 253.8 L213.6 252.8 L218.7 251.6 L223.8 249.9 L228.9 247.8 L234.0 245.0 L239.1 241.5 L244.2 237.1 L249.3 231.8 L254.4 225.5 L259.6 218.0 L264.7 209.4 L269.8 199.7 L274.9 188.9 L280.0 177.1 L285.1 164.7 L290.2 151.8 L295.3 138.8 L300.4 126.1 L305.6 114.0 L310.7 103.1 L315.8 93.7 L320.9 86.1 L326.0 80.8 L331.1 77.9 L336.2 77.6 L341.3 79.8 L346.4 84.5 L351.6 91.5 L356.7 100.4 L361.8 111.0 L366.9 122.8 L372.0 135.4 L377.1 148.4 L382.2 161.3 L387.3 173.9 L392.4 185.9 L397.6 196.9 L402.7 207.0 L407.8 215.9 L412.9 223.6 L418.0 230.3 L423.1 235.8 L428.2 240.4 L433.3 244.1 L438.4 247.1 L443.6 249.4 L448.7 251.2 L453.8 252.6 L458.9 253.6 L464.0 254.3 L469.1 254.8 L474.2 255.2 L479.3 255.5 L484.4 255.7 L489.6 255.8 L494.7 255.9 L499.8 255.9 L504.9 255.9 L510.0 256.0 L510.0 256 L50.0 256 Z" fill="url(#gAmar)"/>
+<path class="draw" pathLength="1" d="M50.0 255.7 L55.1 255.6 L60.2 255.5 L65.3 255.3 L70.4 255.0 L75.6 254.7 L80.7 254.3 L85.8 253.8 L90.9 253.2 L96.0 252.4 L101.1 251.4 L106.2 250.3 L111.3 248.8 L116.4 247.1 L121.6 245.1 L126.7 242.7 L131.8 240.0 L136.9 236.8 L142.0 233.1 L147.1 229.0 L152.2 224.4 L157.3 219.4 L162.4 213.8 L167.6 207.9 L172.7 201.5 L177.8 194.7 L182.9 187.7 L188.0 180.5 L193.1 173.2 L198.2 165.9 L203.3 158.8 L208.4 152.0 L213.6 145.6 L218.7 139.7 L223.8 134.6 L228.9 130.2 L234.0 126.7 L239.1 124.2 L244.2 122.7 L249.3 122.3 L254.4 123.0 L259.6 124.7 L264.7 127.5 L269.8 131.2 L274.9 135.8 L280.0 141.2 L285.1 147.2 L290.2 153.7 L295.3 160.6 L300.4 167.8 L305.6 175.1 L310.7 182.3 L315.8 189.5 L320.9 196.5 L326.0 203.1 L331.1 209.4 L336.2 215.3 L341.3 220.7 L346.4 225.7 L351.6 230.1 L356.7 234.1 L361.8 237.6 L366.9 240.7 L372.0 243.4 L377.1 245.7 L382.2 247.6 L387.3 249.2 L392.4 250.6 L397.6 251.7 L402.7 252.6 L407.8 253.4 L412.9 254.0 L418.0 254.4 L423.1 254.8 L428.2 255.1 L433.3 255.3 L438.4 255.5 L443.6 255.6 L448.7 255.7 L453.8 255.8 L458.9 255.9 L464.0 255.9 L469.1 255.9 L474.2 256.0 L479.3 256.0 L484.4 256.0 L489.6 256.0 L494.7 256.0 L499.8 256.0 L504.9 256.0 L510.0 256.0" stroke="#4F86C6" stroke-width="2.2" fill="none"/>
+<path class="draw d2" pathLength="1" d="M50.0 256.0 L55.1 256.0 L60.2 256.0 L65.3 256.0 L70.4 256.0 L75.6 256.0 L80.7 256.0 L85.8 256.0 L90.9 256.0 L96.0 256.0 L101.1 256.0 L106.2 256.0 L111.3 256.0 L116.4 256.0 L121.6 256.0 L126.7 256.0 L131.8 256.0 L136.9 256.0 L142.0 256.0 L147.1 256.0 L152.2 256.0 L157.3 256.0 L162.4 255.9 L167.6 255.9 L172.7 255.9 L177.8 255.8 L182.9 255.7 L188.0 255.5 L193.1 255.3 L198.2 254.9 L203.3 254.5 L208.4 253.8 L213.6 252.8 L218.7 251.6 L223.8 249.9 L228.9 247.8 L234.0 245.0 L239.1 241.5 L244.2 237.1 L249.3 231.8 L254.4 225.5 L259.6 218.0 L264.7 209.4 L269.8 199.7 L274.9 188.9 L280.0 177.1 L285.1 164.7 L290.2 151.8 L295.3 138.8 L300.4 126.1 L305.6 114.0 L310.7 103.1 L315.8 93.7 L320.9 86.1 L326.0 80.8 L331.1 77.9 L336.2 77.6 L341.3 79.8 L346.4 84.5 L351.6 91.5 L356.7 100.4 L361.8 111.0 L366.9 122.8 L372.0 135.4 L377.1 148.4 L382.2 161.3 L387.3 173.9 L392.4 185.9 L397.6 196.9 L402.7 207.0 L407.8 215.9 L412.9 223.6 L418.0 230.3 L423.1 235.8 L428.2 240.4 L433.3 244.1 L438.4 247.1 L443.6 249.4 L448.7 251.2 L453.8 252.6 L458.9 253.6 L464.0 254.3 L469.1 254.8 L474.2 255.2 L479.3 255.5 L484.4 255.7 L489.6 255.8 L494.7 255.9 L499.8 255.9 L504.9 255.9 L510.0 256.0" stroke="#F4ED45" stroke-width="2.2" fill="none"/>
+<text x="248.6855" y="42" fill="#4F86C6" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">não parou</text>
+<text x="334.3375" y="24" fill="#F4ED45" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">parou</text>
+<text x="107.5" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">65</text><text x="165.0" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">70</text><text x="222.5" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">75</text><text x="280.0" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">80</text><text x="337.5" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">85</text><text x="395.0" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">90</text><text x="452.5" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">95</text>
+<text x="280" y="294" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">temperatura de saída (°C)</text>
+<g class="fade3"><path d="M 248.6855 256 L 248.6855 60" stroke="#4F86C6" stroke-width="1" stroke-dasharray="4 4" opacity=".6"/>
+<path d="M 334.3375 256 L 334.3375 42" stroke="#F4ED45" stroke-width="1" stroke-dasharray="4 4" opacity=".6"/>
+<text x="291.51150000000007" y="200" fill="#B5DC4A" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">7,4 °C</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · o sensor que se denuncia</div>
+<div class="cols"><div><h2 class="title sm">Quando as duas sinos são a mesma curva</h2>
+<p class="lede">O ponto de orvalho do ar comprimido é um sensor caro, instalado, calibrado e alimentando o
+sistema todo turno. E ele <span class="hl">responde exatamente igual</span> nos dois casos.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b2"><span class="k">separação 0,05</span> — contra 1,71 da temperatura. As curvas se sobrepõem.</li>
+<li class="b3"><span class="k">razão sempre ≈ 1</span> — qualquer leitura dele multiplica os dois pesos pelo
+mesmo fator, e some na divisão.</li>
+<li class="bad"><span class="k">ter o sensor não é ter informação</span> — a mesma lição da floresta, agora
+visível sem rodar nada além do treino.</li></ul>
+<div class="note frame warn"><div class="nl">e é pior que na floresta</div><div class="nb">A floresta
+simplesmente não corta por ele. O Naive Bayes <b>multiplica por ele</b> — carrega o ruído para dentro da conta.
+Um sensor inútil aqui não é neutro: é peso morto que empurra a certeza para os extremos.</div></div></div>
+<div class="viz"><svg viewBox="0 0 540 300" role="img">
+<path class="draw" pathLength="1" d="M 50 256 L 510 256" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<path class="fade" d="M50.0 255.6 L55.1 255.4 L60.2 255.3 L65.3 255.1 L70.4 254.8 L75.6 254.5 L80.7 254.1 L85.8 253.6 L90.9 253.0 L96.0 252.3 L101.1 251.5 L106.2 250.5 L111.3 249.3 L116.4 247.8 L121.6 246.2 L126.7 244.3 L131.8 242.0 L136.9 239.5 L142.0 236.6 L147.1 233.3 L152.2 229.7 L157.3 225.6 L162.4 221.1 L167.6 216.2 L172.7 210.8 L177.8 205.0 L182.9 198.8 L188.0 192.2 L193.1 185.3 L198.2 178.0 L203.3 170.6 L208.4 162.9 L213.6 155.2 L218.7 147.5 L223.8 139.9 L228.9 132.4 L234.0 125.3 L239.1 118.5 L244.2 112.2 L249.3 106.6 L254.4 101.6 L259.6 97.3 L264.7 93.9 L269.8 91.4 L274.9 89.9 L280.0 89.3 L285.1 89.6 L290.2 91.0 L295.3 93.3 L300.4 96.5 L305.6 100.5 L310.7 105.3 L315.8 110.8 L320.9 117.0 L326.0 123.6 L331.1 130.7 L336.2 138.1 L341.3 145.7 L346.4 153.4 L351.6 161.1 L356.7 168.8 L361.8 176.3 L366.9 183.6 L372.0 190.6 L377.1 197.3 L382.2 203.6 L387.3 209.4 L392.4 214.9 L397.6 220.0 L402.7 224.6 L407.8 228.8 L412.9 232.5 L418.0 235.9 L423.1 238.9 L428.2 241.5 L433.3 243.8 L438.4 245.8 L443.6 247.5 L448.7 249.0 L453.8 250.2 L458.9 251.3 L464.0 252.1 L469.1 252.9 L474.2 253.5 L479.3 254.0 L484.4 254.4 L489.6 254.7 L494.7 255.0 L499.8 255.2 L504.9 255.4 L510.0 255.5 L510.0 256 L50.0 256 Z" fill="url(#gAzul)"/>
+<path class="fade2" d="M50.0 255.8 L55.1 255.7 L60.2 255.6 L65.3 255.5 L70.4 255.3 L75.6 255.1 L80.7 254.9 L85.8 254.5 L90.9 254.1 L96.0 253.6 L101.1 253.0 L106.2 252.3 L111.3 251.4 L116.4 250.3 L121.6 248.9 L126.7 247.4 L131.8 245.6 L136.9 243.4 L142.0 241.0 L147.1 238.1 L152.2 234.9 L157.3 231.2 L162.4 227.0 L167.6 222.4 L172.7 217.3 L177.8 211.7 L182.9 205.6 L188.0 199.1 L193.1 192.1 L198.2 184.7 L203.3 176.9 L208.4 168.8 L213.6 160.6 L218.7 152.2 L223.8 143.8 L228.9 135.5 L234.0 127.4 L239.1 119.6 L244.2 112.2 L249.3 105.4 L254.4 99.4 L259.6 94.0 L264.7 89.6 L269.8 86.2 L274.9 83.7 L280.0 82.4 L285.1 82.1 L290.2 83.0 L295.3 84.9 L300.4 87.9 L305.6 91.9 L310.7 96.8 L315.8 102.5 L320.9 109.0 L326.0 116.1 L331.1 123.7 L336.2 131.7 L341.3 139.9 L346.4 148.3 L351.6 156.7 L356.7 165.0 L361.8 173.2 L366.9 181.1 L372.0 188.7 L377.1 195.9 L382.2 202.7 L387.3 209.0 L392.4 214.8 L397.6 220.1 L402.7 225.0 L407.8 229.3 L412.9 233.2 L418.0 236.7 L423.1 239.7 L428.2 242.3 L433.3 244.6 L438.4 246.6 L443.6 248.3 L448.7 249.7 L453.8 250.9 L458.9 251.9 L464.0 252.7 L469.1 253.4 L474.2 253.9 L479.3 254.4 L484.4 254.7 L489.6 255.0 L494.7 255.2 L499.8 255.4 L504.9 255.6 L510.0 255.7 L510.0 256 L50.0 256 Z" fill="url(#gAmar)"/>
+<path class="draw" pathLength="1" d="M50.0 255.6 L55.1 255.4 L60.2 255.3 L65.3 255.1 L70.4 254.8 L75.6 254.5 L80.7 254.1 L85.8 253.6 L90.9 253.0 L96.0 252.3 L101.1 251.5 L106.2 250.5 L111.3 249.3 L116.4 247.8 L121.6 246.2 L126.7 244.3 L131.8 242.0 L136.9 239.5 L142.0 236.6 L147.1 233.3 L152.2 229.7 L157.3 225.6 L162.4 221.1 L167.6 216.2 L172.7 210.8 L177.8 205.0 L182.9 198.8 L188.0 192.2 L193.1 185.3 L198.2 178.0 L203.3 170.6 L208.4 162.9 L213.6 155.2 L218.7 147.5 L223.8 139.9 L228.9 132.4 L234.0 125.3 L239.1 118.5 L244.2 112.2 L249.3 106.6 L254.4 101.6 L259.6 97.3 L264.7 93.9 L269.8 91.4 L274.9 89.9 L280.0 89.3 L285.1 89.6 L290.2 91.0 L295.3 93.3 L300.4 96.5 L305.6 100.5 L310.7 105.3 L315.8 110.8 L320.9 117.0 L326.0 123.6 L331.1 130.7 L336.2 138.1 L341.3 145.7 L346.4 153.4 L351.6 161.1 L356.7 168.8 L361.8 176.3 L366.9 183.6 L372.0 190.6 L377.1 197.3 L382.2 203.6 L387.3 209.4 L392.4 214.9 L397.6 220.0 L402.7 224.6 L407.8 228.8 L412.9 232.5 L418.0 235.9 L423.1 238.9 L428.2 241.5 L433.3 243.8 L438.4 245.8 L443.6 247.5 L448.7 249.0 L453.8 250.2 L458.9 251.3 L464.0 252.1 L469.1 252.9 L474.2 253.5 L479.3 254.0 L484.4 254.4 L489.6 254.7 L494.7 255.0 L499.8 255.2 L504.9 255.4 L510.0 255.5" stroke="#4F86C6" stroke-width="2.2" fill="none"/>
+<path class="draw d2" pathLength="1" d="M50.0 255.8 L55.1 255.7 L60.2 255.6 L65.3 255.5 L70.4 255.3 L75.6 255.1 L80.7 254.9 L85.8 254.5 L90.9 254.1 L96.0 253.6 L101.1 253.0 L106.2 252.3 L111.3 251.4 L116.4 250.3 L121.6 248.9 L126.7 247.4 L131.8 245.6 L136.9 243.4 L142.0 241.0 L147.1 238.1 L152.2 234.9 L157.3 231.2 L162.4 227.0 L167.6 222.4 L172.7 217.3 L177.8 211.7 L182.9 205.6 L188.0 199.1 L193.1 192.1 L198.2 184.7 L203.3 176.9 L208.4 168.8 L213.6 160.6 L218.7 152.2 L223.8 143.8 L228.9 135.5 L234.0 127.4 L239.1 119.6 L244.2 112.2 L249.3 105.4 L254.4 99.4 L259.6 94.0 L264.7 89.6 L269.8 86.2 L274.9 83.7 L280.0 82.4 L285.1 82.1 L290.2 83.0 L295.3 84.9 L300.4 87.9 L305.6 91.9 L310.7 96.8 L315.8 102.5 L320.9 109.0 L326.0 116.1 L331.1 123.7 L336.2 131.7 L341.3 139.9 L346.4 148.3 L351.6 156.7 L356.7 165.0 L361.8 173.2 L366.9 181.1 L372.0 188.7 L377.1 195.9 L382.2 202.7 L387.3 209.0 L392.4 214.8 L397.6 220.1 L402.7 225.0 L407.8 229.3 L412.9 233.2 L418.0 236.7 L423.1 239.7 L428.2 242.3 L433.3 244.6 L438.4 246.6 L443.6 248.3 L448.7 249.7 L453.8 250.9 L458.9 251.9 L464.0 252.7 L469.1 253.4 L474.2 253.9 L479.3 254.4 L484.4 254.7 L489.6 255.0 L494.7 255.2 L499.8 255.4 L504.9 255.6 L510.0 255.7" stroke="#F4ED45" stroke-width="2.4" fill="none" stroke-dasharray="7 5"/>
+<text x="300" y="46" fill="#93A4B7" font-size="12" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">as duas curvas, uma em cima da outra</text>
+<text x="78.75" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">-4</text><text x="136.25" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">-2</text><text x="193.75" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0</text><text x="251.25" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">2</text><text x="308.75" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">4</text><text x="366.25" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">6</text><text x="423.75" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">8</text><text x="481.25" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">10</text>
+<text x="280" y="294" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">ponto de orvalho (°C)</text>
+<g class="fade3"><text x="62" y="118" fill="#B5DC4A" font-size="14" text-anchor="start" font-weight="600" style="font-family:'JetBrains Mono',monospace">separação = 0,05</text>
+<text x="62" y="140" fill="#93A4B7" font-size="11" text-anchor="start" font-weight="400" style="font-family:'JetBrains Mono',monospace">contra 1,71 da temperatura</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow trein">exercício · prática guiada</div>
+<div class="exhead"><div class="stars">★★☆☆☆</div><div class="exlabel">o diagnóstico de graça</div></div>
+<div class="flush"><p class="prompt">O treino devolveu estas separações: <span class="data">temperatura 1,71 ·
+corrente 1,65 · pressão 1,59 · vibração 1,32 · horas 1,27 · orvalho 0,05 · turno-noite 0,29</span>.
+Um colega propõe jogar fora <span class="hl">tudo que ficou abaixo de 1,0</span>. O que você responde?</p>
+<div class="answer frame"><div class="al">resposta</div><div class="ab">Concordo com o orvalho e discordo do
+resto do corte. <b>Separação baixa é motivo para investigar, não para descartar em bloco.</b> O orvalho em 0,05
+é caso encerrado: as duas curvas coincidem. Mas o turno-noite em 0,29 é uma <i>dummy</i> de 0 e 1 — a
+separação foi feita para variáveis contínuas e não mede bem uma coluna binária; jogá-la fora por esse número é
+usar a régua errada. E há o problema oposto, que o número não vê: <b>temperatura e corrente têm separação alta
+e são quase a mesma coisa</b> (correlação 0,97). O corte que importa nesta base não é embaixo da lista — é em
+cima dela.</div></div>
+<div class="reveal">pressione <b>R</b> para revelar</div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · de curva a número</div>
+<div class="cols l"><div><h2 class="title sm">A altura da curva, e só ela</h2>
+<p class="lede">A sino não devolve probabilidade: devolve <span class="hl">a altura da curva naquele ponto</span>.
+Duas alturas por sensor. O que carrega a informação é a razão entre elas.</p>
+<div class="eqbox frame"><span class="eqn">(5) A ALTURA · UM SENSOR, UMA CLASSE</span>
+<div class="eq">altura = NORMDIST(<span class="n">leitura</span>, <span class="n">média</span>, <span class="n">desvio</span>)</div></div>
+<div class="eqbox frame"><span class="eqn">(6) O QUE ENTRA NA CONTA</span>
+<div class="eq">razão = <span class="y">altura(parou)</span> ÷ altura(não parou)</div></div>
+<ul class="rules" style="margin-top:1.6vh">
+<li class="b2"><span class="k">razão &gt; 1</span> — esta leitura é mais típica de quem parou. Puxa para parar.</li>
+<li class="b3"><span class="k">razão ≈ 1</span> — a leitura não distingue nada. É o orvalho.</li>
+<li class="b4"><span class="k">razão &lt; 1</span> — puxa para o outro lado.</li></ul>
+<div class="note frame warn"><div class="nl">o cuidado</div><div class="nb">Nenhuma dessas alturas é uma
+probabilidade. Quando o desvio é pequeno, a altura passa de 1 tranquilamente. Só a divisão da equação (4)
+transforma tudo num número entre 0 e 1 — e é a planilha, aba 3, que deixa isso na mão.</div></div></div>
+<div class="viz"><svg viewBox="0 0 500 300" role="img">
+<path class="draw" pathLength="1" d="M 50 250 L 470 250" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<path class="draw" pathLength="1" d="M50.0 248.9 L54.7 248.6 L59.3 248.3 L64.0 247.8 L68.7 247.3 L73.3 246.6 L78.0 245.8 L82.7 244.8 L87.3 243.6 L92.0 242.3 L96.7 240.7 L101.3 238.8 L106.0 236.6 L110.7 234.2 L115.3 231.4 L120.0 228.3 L124.7 224.8 L129.3 220.9 L134.0 216.7 L138.7 212.1 L143.3 207.2 L148.0 201.9 L152.7 196.3 L157.3 190.5 L162.0 184.4 L166.7 178.3 L171.3 172.0 L176.0 165.8 L180.7 159.7 L185.3 153.8 L190.0 148.1 L194.7 142.8 L199.3 138.0 L204.0 133.7 L208.7 130.1 L213.3 127.2 L218.0 125.0 L222.7 123.6 L227.3 123.0 L232.0 123.2 L236.7 124.3 L241.3 126.2 L246.0 128.9 L250.7 132.3 L255.3 136.3 L260.0 140.9 L264.7 146.0 L269.3 151.5 L274.0 157.4 L278.7 163.4 L283.3 169.6 L288.0 175.9 L292.7 182.1 L297.3 188.2 L302.0 194.1 L306.7 199.8 L311.3 205.2 L316.0 210.2 L320.7 215.0 L325.3 219.3 L330.0 223.3 L334.7 227.0 L339.3 230.2 L344.0 233.2 L348.7 235.7 L353.3 238.0 L358.0 240.0 L362.7 241.7 L367.3 243.1 L372.0 244.4 L376.7 245.4 L381.3 246.3 L386.0 247.0 L390.7 247.6 L395.3 248.1 L400.0 248.5 L404.7 248.8 L409.3 249.1 L414.0 249.3 L418.7 249.5 L423.3 249.6 L428.0 249.7 L432.7 249.8 L437.3 249.8 L442.0 249.9 L446.7 249.9 L451.3 249.9 L456.0 249.9 L460.7 250.0 L465.3 250.0 L470.0 250.0" stroke="#4F86C6" stroke-width="2" fill="none"/>
+<path class="draw d2" pathLength="1" d="M50.0 250.0 L54.7 250.0 L59.3 250.0 L64.0 250.0 L68.7 250.0 L73.3 250.0 L78.0 250.0 L82.7 250.0 L87.3 250.0 L92.0 250.0 L96.7 250.0 L101.3 250.0 L106.0 250.0 L110.7 250.0 L115.3 250.0 L120.0 250.0 L124.7 250.0 L129.3 250.0 L134.0 250.0 L138.7 250.0 L143.3 249.9 L148.0 249.9 L152.7 249.9 L157.3 249.8 L162.0 249.7 L166.7 249.5 L171.3 249.3 L176.0 249.1 L180.7 248.7 L185.3 248.2 L190.0 247.5 L194.7 246.6 L199.3 245.4 L204.0 243.9 L208.7 241.9 L213.3 239.5 L218.0 236.6 L222.7 233.0 L227.3 228.6 L232.0 223.5 L236.7 217.6 L241.3 210.8 L246.0 203.1 L250.7 194.5 L255.3 185.1 L260.0 175.1 L264.7 164.5 L269.3 153.5 L274.0 142.3 L278.7 131.3 L283.3 120.7 L288.0 110.8 L292.7 101.9 L297.3 94.2 L302.0 88.0 L306.7 83.6 L311.3 81.0 L316.0 80.4 L320.7 81.8 L325.3 85.0 L330.0 90.2 L334.7 96.9 L339.3 105.1 L344.0 114.4 L348.7 124.6 L353.3 135.4 L358.0 146.5 L362.7 157.6 L367.3 168.5 L372.0 178.9 L376.7 188.7 L381.3 197.8 L386.0 206.1 L390.7 213.4 L395.3 219.9 L400.0 225.6 L404.7 230.4 L409.3 234.4 L414.0 237.8 L418.7 240.5 L423.3 242.7 L428.0 244.5 L432.7 245.9 L437.3 246.9 L442.0 247.8 L446.7 248.4 L451.3 248.8 L456.0 249.2 L460.7 249.4 L465.3 249.6 L470.0 249.7" stroke="#F4ED45" stroke-width="2" fill="none"/>
+<g class="fade3"><path d="M 286.8 250 L 286.8 30" stroke="#B5DC4A" stroke-width="1.6" stroke-dasharray="5 4"/><circle cx="286.8" cy="174.3" r="5" fill="#4F86C6"/><circle cx="286.8" cy="113.2" r="5" fill="#F4ED45"/><text x="286.83333333333326" y="24" fill="#B5DC4A" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">leitura de hoje: 82,3 °C</text><text x="298.83333333333326" y="178.31270481674738" fill="#4F86C6" font-size="11.5" text-anchor="start" font-weight="600" style="font-family:'JetBrains Mono',monospace">0,0482</text><text x="298.83333333333326" y="117.20928571348966" fill="#F4ED45" font-size="11.5" text-anchor="start" font-weight="600" style="font-family:'JetBrains Mono',monospace">0,0870</text><text x="298.83333333333326" y="95.20928571348966" fill="#E8EEF4" font-size="12" text-anchor="start" font-weight="600" style="font-family:'JetBrains Mono',monospace">razão 1,81</text></g>
+<text x="85.0" y="270" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">65</text><text x="143.33333333333331" y="270" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">70</text><text x="201.66666666666666" y="270" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">75</text><text x="260.0" y="270" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">80</text><text x="318.3333333333333" y="270" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">85</text><text x="376.6666666666667" y="270" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">90</text><text x="435.0" y="270" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">95</text>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · a conta inteira, sem nada escondido</div>
+<h2 class="title sm">Um turno, oito razões, dois pesos</h2>
+<p class="lede" style="max-width:70ch">Turno t1015 da central. Cada linha é a equação (5) aplicada duas vezes.
+A última coluna é a equação (6). O resto é multiplicação.</p>
+<div class="mtable" style="margin-top:2.2vh;grid-template-columns:1.5fr 1fr 1fr 1fr">
+<span class="h">sensor e leitura</span><span class="h">altura · não parou</span><span class="h">altura · parou</span><span class="h">razão</span>
+<span class="c">pressão 7,97</span><span class="c num">0,1724</span><span class="c num">1,1730</span><span class="c num" style="color:#B5DC4A">6,80</span><span class="c">temperatura 82,3</span><span class="c num">0,0482</span><span class="c num">0,0870</span><span class="c num" style="color:#B5DC4A">1,81</span><span class="c">corrente 42,63</span><span class="c num">0,1261</span><span class="c num">0,3130</span><span class="c num" style="color:#B5DC4A">2,48</span><span class="c">vibração 2,19</span><span class="c num">0,5697</span><span class="c num">0,3818</span><span class="c num" style="color:#B5DC4A">0,67</span><span class="c">horas 784</span><span class="c num">0,00074</span><span class="c num">0,00022</span><span class="c num" style="color:#B5DC4A">0,30</span><span class="c">orvalho 2,30</span><span class="c num">0,1636</span><span class="c num">0,1671</span><span class="c num" style="color:#B5DC4A">1,02</span><span class="c">turno noite</span><span class="c num">0,3103</span><span class="c num">0,4573</span><span class="c num" style="color:#B5DC4A">1,47</span><span class="c">turno tarde</span><span class="c num">0,6602</span><span class="c num">0,9056</span><span class="c num" style="color:#B5DC4A">1,37</span>
+<span class="c" style="font-weight:600;color:#E8EEF4">produto das oito</span>
+<span class="c num">1,48 × 10⁻⁸</span><span class="c num">1,88 × 10⁻⁷</span><span class="c num" style="color:#B5DC4A">12,67</span>
+<span class="c" style="font-weight:600;color:#E8EEF4">× prior (0,8618 · 0,1382)</span>
+<span class="c num">1,28 × 10⁻⁸</span><span class="c num">2,60 × 10⁻⁸</span><span class="c num" style="color:#B5DC4A">2,03</span></div>
+<div class="cols" style="flex:0;margin-top:2.2vh;align-items:start">
+<div class="eqbox frame"><span class="eqn">(7) A DIVISÃO FINAL</span>
+<div class="eq">2,60 ÷ (1,28 + 2,60) = <span class="y">0,6701</span></div></div>
+<div class="note frame warn"><div class="nl">e o compressor parou?</div><div class="nb"><b>Não.</b> O modelo
+apostou 67% e errou. Guarde este turno — ele volta daqui a seis slides, e é a aula inteira.</div></div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · a palavra do meio do nome</div>
+<div class="cols"><div><h2 class="title sm">Três testemunhas que combinaram a história</h2>
+<p class="lede">Multiplicar as oito alturas só valeria se os oito sensores fossem independentes. Eles não são —
+e o modelo <span class="hl">não sabe disso e não tem como saber</span>.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b2"><span class="k">Temperatura e corrente: r = 0,97</span> — o motor esquenta porque puxa mais
+corrente. É uma medida física só, lida por dois instrumentos.</li>
+<li class="b3"><span class="k">O júri conta dois depoimentos</span> — a razão 1,81 e a razão 2,48 entram na
+multiplicação como se fossem duas provas independentes.</li>
+<li class="bad"><span class="k">E mesmo assim funciona</span> — para <span class="hl">ordenar</span>. É esse o
+achado que manteve o algoritmo vivo por sessenta anos.</li></ul>
+<div class="note frame trein"><div class="nl">a pergunta certa</div><div class="nb">Não é "a suposição é
+verdadeira?" — ela nunca é. É "<b>o que ela estraga?</b>". A resposta está no próximo slide, e é bem
+específica: ela não estraga a ordem. Estraga o número.</div></div></div>
+<div class="viz"><svg viewBox="0 0 500 300" role="img">
+<g class="fade"><circle cx="250" cy="58" r="26" fill="rgba(145,104,214,.2)" stroke="#9168D6" stroke-width="1.6"/>
+<text x="250" y="62" fill="#E8EEF4" font-size="12" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">fato</text></g>
+<g class="fade2"><circle cx="120" cy="168" r="24" fill="rgba(79,134,198,.16)" stroke="#4F86C6" stroke-width="1.4"/><text x="120" y="172" fill="#93A4B7" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">temp</text></g><g class="fade2"><circle cx="250" cy="168" r="24" fill="rgba(79,134,198,.16)" stroke="#4F86C6" stroke-width="1.4"/><text x="250" y="172" fill="#93A4B7" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">corr</text></g><g class="fade2"><circle cx="380" cy="168" r="24" fill="rgba(79,134,198,.16)" stroke="#4F86C6" stroke-width="1.4"/><text x="380" y="172" fill="#93A4B7" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">vibr</text></g>
+<path class="draw d2" pathLength="1" d="M 250 84 L 124 144" stroke="#9168D6" stroke-width="1.4" fill="none" opacity=".7"/><path class="draw d2" pathLength="1" d="M 250 84 L 250 144" stroke="#9168D6" stroke-width="1.4" fill="none" opacity=".7"/><path class="draw d2" pathLength="1" d="M 250 84 L 376 144" stroke="#9168D6" stroke-width="1.4" fill="none" opacity=".7"/>
+<g class="fade3"><rect x="90" y="212" width="320" height="46" rx="6" fill="rgba(244,237,69,.08)" stroke="rgba(244,237,69,.4)" stroke-width="1.2"/>
+<text x="250" y="232" fill="#F4ED45" font-size="12.5" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">o modelo soma três votos</text>
+<text x="250" y="250" fill="#93A4B7" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">onde só havia um fato</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow trein">treinar · o modelo inteiro, impresso</div>
+<h2 class="title sm">Trinta e quatro números. É o modelo completo.</h2>
+<p class="lede" style="max-width:72ch">Trinta e dois aqui, mais os dois do prior. Nenhum outro modelo do curso
+cabe numa tela: a floresta da aula passada tinha 15.421 folhas.</p>
+<div class="mtable" style="margin-top:2.4vh;grid-template-columns:1.7fr 1fr 1fr 1fr 1fr 1fr">
+<span class="h">sensor</span><span class="h">média · não parou</span><span class="h">desvio · não parou</span>
+<span class="h">média · parou</span><span class="h">desvio · parou</span><span class="h">separação</span>
+<span class="c">pressão de saída (bar)</span><span class="c num">8,65</span><span class="c num">0,35</span><span class="c num">8,16</span><span class="c num">0,27</span><span class="c num win">1,59</span><span class="c">temperatura de saída (°C)</span><span class="c num">77,28</span><span class="c num">4,94</span><span class="c num">84,73</span><span class="c num">3,70</span><span class="c num win">1,71</span><span class="c">corrente do motor (A)</span><span class="c num">40,78</span><span class="c num">1,56</span><span class="c num">43,06</span><span class="c num">1,19</span><span class="c num win">1,65</span><span class="c">vibração (mm/s)</span><span class="c num">1,98</span><span class="c num">0,67</span><span class="c num">2,82</span><span class="c num">0,61</span><span class="c num ">1,32</span><span class="c">horas desde a manutenção</span><span class="c num">666</span><span class="c num">525</span><span class="c num">1855</span><span class="c num">1218</span><span class="c num ">1,27</span><span class="c">ponto de orvalho (°C)</span><span class="c num">3,02</span><span class="c num">2,32</span><span class="c num">3,13</span><span class="c num">2,23</span><span class="c num lose">0,05</span><span class="c">turno = noite</span><span class="c num">0,33</span><span class="c num">0,47</span><span class="c num">0,47</span><span class="c num">0,50</span><span class="c num lose">0,29</span><span class="c">turno = tarde</span><span class="c num">0,33</span><span class="c num">0,47</span><span class="c num">0,19</span><span class="c num">0,39</span><span class="c num lose">0,33</span></div>
+<div class="cols" style="flex:0;margin-top:2.4vh;align-items:start">
+<div class="note frame trein"><div class="nl">o que isso permite</div><div class="nb">Versionar em uma linha de
+texto. Rodar num CLP. Explicar para o supervisor apontando a tabela. Reajustar recalculando duas médias quando
+a fábrica mudar. Nenhuma dessas quatro coisas a floresta permite.</div></div>
+<div class="note frame warn"><div class="nl">e o que isso denuncia</div><div class="nb">Olhe a linha do orvalho:
+as quatro colunas praticamente iguais. E olhe as duas últimas linhas — sinos ajustadas a colunas de 0 e 1,
+com o modelo acreditando em "turno = 1,8". Funciona; certo não é.</div></div></div></section>
+<section class="slide"><div class="eyebrow aval">avaliar · a ingenuidade, medida</div>
+<div class="cols"><div><h2 class="title sm">A ordem não se mexe. A certeza estoura.</h2>
+<p class="lede">Copiamos a coluna da corrente de propósito, duas, três e cinco vezes. Nenhuma informação nova
+entrou — é <span class="hl">a mesma corrente</span>. Olhe o que acontece com cada métrica.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b2"><span class="k">AUC: 0,8865 → 0,8852</span> — travada. A ordenação dos turnos é a mesma.</li>
+<li class="bad"><span class="k">Brier: 0,1121 → 0,1543</span> — piora 38%. O número fica cada vez mais errado.</li>
+<li class="b4"><span class="k">Previsões extremas: 68% → 81%</span> — a conta empurra tudo para 0 e para 1.</li></ul>
+<div class="note frame aval"><div class="nl">a frase para levar</div><div class="nb">O Naive Bayes
+<b>ordena bem e mede mal</b>. Isso não é defeito de implementação nem falta de dados: é consequência direta da
+palavra "ingênuo". Sensores correlacionados existem em toda fábrica.</div></div></div>
+<div class="viz"><svg viewBox="0 0 520 290" role="img">
+<path class="draw" pathLength="1" d="M 60 230 L 490 230" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<rect class="grow" style="--i:0" x="90" y="100" width="34" height="130" fill="#4F86C6" opacity=".8" rx="2"/><rect class="grow" style="--i:4" x="128" y="146" width="34" height="84" fill="#F4ED45" opacity=".8" rx="2"/><text x="126" y="250" fill="#93A4B7" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">1×</text><text x="107" y="92.25000000000014" fill="#4F86C6" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,886</text><text x="145" y="137.925" fill="#F4ED45" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,112</text><rect class="grow" style="--i:1" x="195" y="100" width="34" height="130" fill="#4F86C6" opacity=".8" rx="2"/><rect class="grow" style="--i:5" x="233" y="136" width="34" height="94" fill="#F4ED45" opacity=".8" rx="2"/><text x="231" y="250" fill="#93A4B7" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">2×</text><text x="212" y="92.25000000000014" fill="#4F86C6" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,886</text><text x="250" y="127.875" fill="#F4ED45" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,126</text><rect class="grow" style="--i:2" x="300" y="101" width="34" height="129" fill="#4F86C6" opacity=".8" rx="2"/><rect class="grow" style="--i:6" x="338" y="127" width="34" height="103" fill="#F4ED45" opacity=".8" rx="2"/><text x="336" y="250" fill="#93A4B7" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">3×</text><text x="317" y="92.7000000000001" fill="#4F86C6" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,886</text><text x="355" y="119.175" fill="#F4ED45" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,137</text><rect class="grow" style="--i:3" x="405" y="102" width="34" height="128" fill="#4F86C6" opacity=".8" rx="2"/><rect class="grow" style="--i:7" x="443" y="114" width="34" height="116" fill="#F4ED45" opacity=".8" rx="2"/><text x="441" y="250" fill="#93A4B7" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">5×</text><text x="422" y="94.2000000000001" fill="#4F86C6" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,885</text><text x="460" y="106.275" fill="#F4ED45" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,154</text>
+<g class="fade3"><rect x="66" y="20" width="12" height="12" fill="#4F86C6" opacity=".8" rx="2"/><text x="150" y="31" fill="#4F86C6" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">AUC — a ordem</text>
+<rect x="266" y="20" width="12" height="12" fill="#F4ED45" opacity=".8" rx="2"/><text x="350" y="31" fill="#F4ED45" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">Brier — o número</text></g>
+<text x="275" y="275" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">cópias da mesma coluna de corrente</text>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow aval">avaliar · a métrica que mente de novo</div>
+<div class="cols l"><div><h2 class="title sm">86,6% de acerto, metade das paradas perdidas</h2>
+<p class="lede">No limiar de fábrica, 0,50, o modelo acerta 86,6% dos turnos. Dizer <span class="hl">"nunca vai
+parar"</span>, sem modelo nenhum, acerta 86,1%. Meio ponto percentual de diferença.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b3"><span class="k">13,9% de paradas</span> — base desbalanceada, como quase toda base de falha.</li>
+<li class="bad"><span class="k">A acurácia é dominada pela classe grande</span> — ela mede o que não interessa.</li>
+<li class="b4"><span class="k">Recall 74,5%</span> — de cada quatro paradas, uma passou batido. Custo:
+R$ 18.000 cada.</li></ul>
+<div class="note frame warn"><div class="nl">e por que 0,50?</div><div class="nb">Por nada. É o padrão do
+<code>predict()</code>, não uma escolha. Ninguém na fábrica decidiu que meio a meio é o corte certo — e nós
+já sabemos que não é: o preço dos dois erros aponta para 0,091.</div></div></div>
+<div class="viz"><svg viewBox="0 0 460 300" role="img">
+<text x="230" y="22" fill="#93A4B7" font-size="11" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">TESTE LACRADO · 395 TURNOS · LIMIAR 0,50</text>
+<g class="fade"><text x="160" y="58" fill="#F4ED45" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">parou</text><text x="320" y="58" fill="#4F86C6" font-size="11.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">não parou</text>
+<text x="88" y="100" fill="#93A4B7" font-size="11.5" text-anchor="end" font-weight="400" style="font-family:'JetBrains Mono',monospace">acionou</text><text x="88" y="180" fill="#93A4B7" font-size="11.5" text-anchor="end" font-weight="400" style="font-family:'JetBrains Mono',monospace">deixou rodar</text></g>
+<g class="fade2"><rect x="100" y="70" width="120" height="70" rx="5" fill="rgba(86,200,119,.16)" stroke="rgba(86,200,119,.5)"/>
+<text x="160" y="108" fill="#56C877" font-size="24" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">41</text>
+<rect x="240" y="70" width="150" height="70" rx="5" fill="rgba(244,237,69,.09)" stroke="rgba(244,237,69,.35)"/>
+<text x="315" y="108" fill="#F4ED45" font-size="24" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">39</text>
+<rect x="100" y="150" width="120" height="70" rx="5" fill="rgba(244,237,69,.16)" stroke="rgba(244,237,69,.6)"/>
+<text x="160" y="188" fill="#F4ED45" font-size="24" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">14</text>
+<rect x="240" y="150" width="150" height="70" rx="5" fill="rgba(20,28,38,.5)" stroke="rgba(143,164,183,.25)"/>
+<text x="315" y="188" fill="#93A4B7" font-size="24" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">301</text></g>
+<g class="fade3"><text x="245" y="252" fill="#F4ED45" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">14 paradas perdidas  →  R$ 252.000</text>
+<text x="245" y="274" fill="#4F86C6" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">39 alarmes falsos  →  R$ 70.200</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow aval">exercício · prática guiada</div>
+<div class="exhead"><div class="stars">★★★☆☆</div><div class="exlabel">a métrica e o desbalanceamento</div></div>
+<div class="flush"><p class="prompt">Um fornecedor apresenta um modelo de previsão de falha com
+<span class="data">acurácia de 91%</span> e diz que é o melhor do mercado. A base dele tem
+<span class="data">6% de falhas</span>. <span class="hl">Quais duas perguntas você faz antes de qualquer
+outra coisa</span> — e o que você já sabe sem esperar a resposta?</p>
+<div class="answer frame"><div class="al">resposta</div><div class="ab">As duas perguntas:
+<b>(1) qual é o recall?</b> — de cada 100 falhas reais, quantas ele pega; <b>(2) em que limiar esses 91%
+foram medidos?</b> O que já se sabe sem resposta nenhuma: com 6% de falhas, <b>dizer "nunca falha" dá 94% de
+acurácia</b> — três pontos <i>acima</i> do modelo dele. Ou seja: nesse recorte, o modelo é pior que não fazer
+nada. Não prova que o modelo é ruim (a acurácia pode ter sido medida num limiar que privilegia recall), prova
+que <b>91% não é informação</b>. E a terceira pergunta, que é a de verdade: quanto custa cada um dos dois erros
+na fábrica dele?</div></div>
+<div class="reveal">pressione <b>R</b> para revelar</div></div></section>
+<section class="slide"><div class="eyebrow aval">avaliar · o empate que surpreende</div>
+<h2 class="title sm">Os três ordenam praticamente igual</h2>
+<p class="lede" style="max-width:70ch">Validação cruzada de 5 dobras sobre os 1.314 turnos. A coluna da AUC diz
+que os três são o mesmo modelo. A coluna seguinte diz que não são.</p>
+<div class="mtable" style="margin-top:2.4vh;grid-template-columns:1.3fr 1fr 1fr 1fr 2fr">
+<span class="h">modelo</span><span class="h">AUC · a ordem</span><span class="h">Brier · o número</span>
+<span class="h">previsões extremas</span><span class="h">tempo de treino</span>
+<span class="c">Naive Bayes</span><span class="c num win">0,8865</span><span class="c num lose">0,1121</span>
+<span class="c num lose">68%</span><span class="c num">milissegundos</span>
+<span class="c">Floresta · 400 árvores</span><span class="c num">0,8782</span><span class="c num win">0,0756</span>
+<span class="c num">20%</span><span class="c num">segundos</span>
+<span class="c">Árvore · profundidade 4</span><span class="c num">0,8731</span><span class="c num">0,0786</span>
+<span class="c num">41%</span><span class="c num">instantâneo</span></div>
+<div class="cols" style="flex:0;margin-top:2.4vh;align-items:start">
+<div class="note frame aval"><div class="nl">a AUC responde uma pergunta só</div><div class="nb">"Se eu sortear
+uma parada e um turno normal, o modelo dá nota maior para a parada?" É <b>ordenação</b>. Ela não pergunta se
+0,90 quer dizer 90%.</div></div>
+<div class="note frame warn"><div class="nl">o Brier responde a outra</div><div class="nb">"O número que ele
+disse bate com o que aconteceu?" Aqui o Naive Bayes é <b>48% pior</b> que a floresta — e o próximo slide mostra
+o estrago com os olhos.</div></div></div></section>
+<section class="slide"><div class="eyebrow aval">avaliar · o retrato do problema</div>
+<div class="cols"><div><h2 class="title sm">Um grita. O outro hesita.</h2>
+<p class="lede">As 1.314 probabilidades de cada modelo, empilhadas. A escala vertical é logarítmica — sem isso,
+a primeira barra esmaga o resto.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="bad"><span class="k">Naive Bayes</span> — 153 turnos acima de 0,95 e 879 abaixo de 0,05.
+Ele quase não usa o meio da régua.</li>
+<li class="b2"><span class="k">Floresta</span> — nada passa de 0,80. Ela nunca tem certeza absoluta, porque
+sempre há árvores discordando.</li>
+<li class="b4"><span class="k">A causa é a multiplicação</span> — oito razões multiplicadas, várias delas
+contando o mesmo fato, empurram o resultado para as pontas.</li></ul>
+<div class="note frame warn"><div class="nl">a consequência prática</div><div class="nb">Quando quase tudo está
+em 0 ou 1, o limiar quase não tem para onde andar. Foi o que a curva de custo vai mostrar: a do Naive Bayes é
+quase plana, a da floresta tem um vale nítido.</div></div></div>
+<div class="viz"><svg viewBox="0 0 520 290" role="img">
+<path class="draw" pathLength="1" d="M 56 232 L 500 232" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<rect class="grow" style="--i:0" x="62" y="57" width="9" height="175" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:0" x="72" y="63" width="9" height="169" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:1" x="83" y="131" width="9" height="101" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:1" x="93" y="93" width="9" height="139" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:2" x="104" y="141" width="9" height="91" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:2" x="114" y="121" width="9" height="111" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:3" x="125" y="159" width="9" height="73" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:3" x="135" y="141" width="9" height="91" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:4" x="146" y="166" width="9" height="66" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:4" x="156" y="144" width="9" height="88" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:5" x="167" y="186" width="9" height="46" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:5" x="177" y="146" width="9" height="86" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:6" x="188" y="170" width="9" height="62" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:6" x="198" y="156" width="9" height="76" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:7" x="209" y="157" width="9" height="75" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:7" x="219" y="153" width="9" height="79" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:8" x="230" y="168" width="9" height="64" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:8" x="240" y="162" width="9" height="70" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:9" x="251" y="196" width="9" height="36" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:9" x="261" y="156" width="9" height="76" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:10" x="272" y="186" width="9" height="46" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:10" x="282" y="155" width="9" height="77" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:11" x="293" y="162" width="9" height="70" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:11" x="303" y="134" width="9" height="98" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:12" x="314" y="168" width="9" height="64" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:12" x="324" y="143" width="9" height="89" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:13" x="335" y="162" width="9" height="70" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:13" x="345" y="137" width="9" height="95" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:14" x="356" y="175" width="9" height="57" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:14" x="366" y="159" width="9" height="73" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:15" x="377" y="155" width="9" height="77" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:15" x="387" y="182" width="9" height="50" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:16" x="398" y="173" width="9" height="59" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:16" x="408" y="232" width="9" height="0" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:17" x="419" y="157" width="9" height="75" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:17" x="429" y="232" width="9" height="0" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:18" x="440" y="145" width="9" height="87" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:18" x="450" y="232" width="9" height="0" fill="#4F86C6" opacity=".7" rx="1"/><rect class="grow" style="--i:19" x="461" y="102" width="9" height="130" fill="#F4ED45" opacity=".85" rx="1"/><rect class="grow" style="--i:19" x="471" y="232" width="9" height="0" fill="#4F86C6" opacity=".7" rx="1"/>
+<text x="62" y="250" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0</text><text x="146" y="250" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,2</text><text x="230" y="250" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,4</text><text x="314" y="250" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,6</text><text x="398" y="250" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,8</text><text x="482" y="250" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">1,0</text>
+<text x="275" y="274" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">probabilidade que o modelo devolveu</text>
+<g class="fade3"><rect x="330" y="18" width="11" height="11" fill="#F4ED45" opacity=".85" rx="2"/><text x="392" y="28" fill="#F4ED45" font-size="11" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">Naive Bayes</text>
+<rect x="330" y="36" width="11" height="11" fill="#4F86C6" opacity=".7" rx="2"/><text x="377" y="46" fill="#4F86C6" font-size="11" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">Floresta</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow aval">avaliar · disse × aconteceu</div>
+<div class="cols l"><div><h2 class="title sm">Das 181 vezes que ele disse "quase certeza", 60% pararam</h2>
+<p class="lede">Agrupamos os turnos pela probabilidade que cada modelo deu e conferimos <span class="hl">o que
+aconteceu de verdade</span> em cada grupo. A diagonal é o modelo honesto.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="bad"><span class="k">Naive Bayes disse ≥ 0,90</span> em 181 turnos. Pararam <span class="hl">59,7%</span>.
+A curva inteira mora abaixo da diagonal.</li>
+<li class="b2"><span class="k">Floresta disse 0,50–0,70</span> em 132 turnos. Pararam <span class="hl">69,7%</span>.
+Ela encosta na diagonal.</li>
+<li class="b4"><span class="k">Nenhum dos dois é perfeito</span> — mas um erra por uma casa decimal e o outro
+por quarenta pontos percentuais.</li></ul>
+<div class="note frame warn"><div class="nl">onde isso vira problema real</div><div class="nb">No relatório.
+"O modelo indica 97% de risco de parada neste turno" é uma frase falsa se o modelo é este — e é exatamente a
+frase que alguém vai escrever, porque o número está na tela.</div></div></div>
+<div class="viz"><svg viewBox="0 0 520 300" role="img">
+<path class="draw" pathLength="1" d="M 62 240 L 490 240" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/><path class="draw" pathLength="1" d="M 62 240 L 62 30" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<path class="fade" d="M 62 240 L 462 40" stroke="rgba(143,164,183,.4)" stroke-width="1.4" stroke-dasharray="6 5" fill="none"/>
+<path class="draw d2" pathLength="1" d="M74.3 232.9 L132.5 220.2 L220.5 151.4 L305.9 100.6 L356.8 149.1" stroke="#4F86C6" stroke-width="2.2" fill="none"/><circle class="pop" style="--i:0" cx="74.3" cy="232.9" r="5" fill="#4F86C6"/><circle class="pop" style="--i:1" cx="132.5" cy="220.2" r="5" fill="#4F86C6"/><circle class="pop" style="--i:2" cx="220.5" cy="151.4" r="5" fill="#4F86C6"/><circle class="pop" style="--i:3" cx="305.9" cy="100.6" r="5" fill="#4F86C6"/><circle class="pop" style="--i:4" cx="356.8" cy="149.1" r="5" fill="#4F86C6"/>
+<path class="draw d3" pathLength="1" d="M64.9 234.2 L127.6 212.7 L215.1 210.7 L307.8 194.5 L385.7 157.0 L455.5 120.7" stroke="#F4ED45" stroke-width="2.2" fill="none"/><circle class="pop" style="--i:0" cx="64.9" cy="234.2" r="5" fill="#F4ED45"/><circle class="pop" style="--i:1" cx="127.6" cy="212.7" r="5" fill="#F4ED45"/><circle class="pop" style="--i:2" cx="215.1" cy="210.7" r="5" fill="#F4ED45"/><circle class="pop" style="--i:3" cx="307.8" cy="194.5" r="5" fill="#F4ED45"/><circle class="pop" style="--i:4" cx="385.7" cy="157.0" r="5" fill="#F4ED45"/><circle class="pop" style="--i:5" cx="455.5" cy="120.7" r="5" fill="#F4ED45"/>
+<text x="285" y="262" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">o que o modelo disse</text>
+<text x="30" y="135" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">aconteceu</text>
+<g class="fade3"><text x="400" y="60" fill="#93A4B7" font-size="11" text-anchor="start" font-weight="400" style="font-family:'JetBrains Mono',monospace">modelo honesto</text>
+<text x="430" y="175" fill="#F4ED45" font-size="11.5" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">Naive Bayes</text>
+<text x="300" y="105" fill="#4F86C6" font-size="11.5" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">Floresta</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow aval">exercício · prática guiada</div>
+<div class="exhead"><div class="stars">★★★★☆</div><div class="exlabel">o relatório que sai da sua mão</div></div>
+<div class="flush"><p class="prompt">O sistema mostra ao supervisor: <span class="data">"Compressor C-01,
+turno da noite — risco de parada: 99,7%"</span>. O modelo por trás é este Naive Bayes.
+<span class="hl">Reescreva a frase</span> de modo que ela continue útil e deixe de ser falsa — e diga o que
+você mudaria no sistema.</p>
+<div class="answer frame"><div class="al">resposta</div><div class="ab">A frase honesta não menciona
+porcentagem: <b>"Compressor C-01, turno da noite — prioridade máxima na fila de manutenção (1º de 47 turnos
+avaliados)"</b>. Traduz a única coisa que o modelo faz bem: <i>ordenar</i>. Um "99,7%" é falso porque, entre os
+turnos que este modelo classificou acima de 0,90, só <b>59,7%</b> pararam. No sistema, três mudanças:
+<b>(1)</b> exibir posição na fila ou faixa de risco (alta/média/baixa), nunca o número cru; <b>(2)</b> registrar
+o limiar usado e a data do último treino ao lado da recomendação; <b>(3)</b> se o número tiver mesmo que
+aparecer, calibrar o modelo antes — em scikit-learn é <code>CalibratedClassifierCV</code>, uma linha, e é
+assunto para depois desta aula.</div></div>
+<div class="reveal">pressione <b>R</b> para revelar</div></div></section>
+<section class="slide"><div class="eyebrow dec">decidir · o preço escolhe o corte</div>
+<div class="cols"><div><h2 class="title sm">A conta em reais, limiar a limiar</h2>
+<p class="lede">Cada ponto é uma política de manutenção inteira, avaliada nos 1.314 turnos:
+<span class="hl">alarmes falsos × R$ 1.800 mais paradas perdidas × R$ 18.000</span>, dividido pelo número de
+turnos.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b4"><span class="k">Naive Bayes: R$ 663 no limiar 0,12</span> — captura 85% das paradas.</li>
+<li class="b2"><span class="k">Floresta: R$ 712 no limiar 0,25</span> — captura 77%.</li>
+<li class="b3"><span class="k">Nunca alarmar: R$ 2.493</span> · <span class="k">sempre alarmar: R$ 1.551</span> —
+os dois modelos ganham dos dois extremos, com folga.</li></ul>
+<div class="note frame dec"><div class="nl">o formato das duas curvas</div><div class="nb">A do Naive Bayes é
+quase plana: as probabilidades dele estão nas pontas, então mover o limiar quase não muda quem é acionado.
+A da floresta tem um vale nítido — e uma subida violenta depois de 0,30, porque ela nunca passa de 0,80.</div></div></div>
+<div class="viz"><svg viewBox="0 0 540 300" role="img">
+<path class="draw" pathLength="1" d="M 70 240 L 510 240" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/><path class="draw" pathLength="1" d="M 70 240 L 70 40" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<path class="draw d2" pathLength="1" d="M70.0 201.4 L96.2 135.0 L122.5 113.8 L140.0 106.0 L157.5 96.4 L183.8 88.6 L227.5 88.6 L271.2 85.6 L315.0 112.0 L402.5 157.6 L490.0 229.6" stroke="#4F86C6" stroke-width="2.2" fill="none"/><circle class="pop" style="--i:0" cx="70.0" cy="201.4" r="4" fill="#4F86C6"/><circle class="pop" style="--i:1" cx="96.2" cy="135.0" r="4" fill="#4F86C6"/><circle class="pop" style="--i:2" cx="122.5" cy="113.8" r="4" fill="#4F86C6"/><circle class="pop" style="--i:3" cx="140.0" cy="106.0" r="4" fill="#4F86C6"/><circle class="pop" style="--i:4" cx="157.5" cy="96.4" r="4" fill="#4F86C6"/><circle class="pop" style="--i:5" cx="183.8" cy="88.6" r="4" fill="#4F86C6"/><circle class="pop" style="--i:6" cx="227.5" cy="88.6" r="4" fill="#4F86C6"/><circle class="pop" style="--i:7" cx="271.2" cy="85.6" r="4" fill="#4F86C6"/><circle class="pop" style="--i:8" cx="315.0" cy="112.0" r="4" fill="#4F86C6"/><circle class="pop" style="--i:9" cx="402.5" cy="157.6" r="4" fill="#4F86C6"/><circle class="pop" style="--i:10" cx="490.0" cy="229.6" r="4" fill="#4F86C6"/><path class="draw d3" pathLength="1" d="M70.0 108.6 L96.2 93.8 L122.5 81.7 L140.0 76.9 L157.5 70.0 L183.8 86.4 L227.5 93.8 L271.2 93.4 L315.0 91.2 L402.5 98.6 L490.0 102.1" stroke="#F4ED45" stroke-width="2.2" fill="none"/><circle class="pop" style="--i:0" cx="70.0" cy="108.6" r="4" fill="#F4ED45"/><circle class="pop" style="--i:1" cx="96.2" cy="93.8" r="4" fill="#F4ED45"/><circle class="pop" style="--i:2" cx="122.5" cy="81.7" r="4" fill="#F4ED45"/><circle class="pop" style="--i:3" cx="140.0" cy="76.9" r="4" fill="#F4ED45"/><circle class="pop" style="--i:4" cx="157.5" cy="70.0" r="4" fill="#F4ED45"/><circle class="pop" style="--i:5" cx="183.8" cy="86.4" r="4" fill="#F4ED45"/><circle class="pop" style="--i:6" cx="227.5" cy="93.8" r="4" fill="#F4ED45"/><circle class="pop" style="--i:7" cx="271.2" cy="93.4" r="4" fill="#F4ED45"/><circle class="pop" style="--i:8" cx="315.0" cy="91.2" r="4" fill="#F4ED45"/><circle class="pop" style="--i:9" cx="402.5" cy="98.6" r="4" fill="#F4ED45"/><circle class="pop" style="--i:10" cx="490.0" cy="102.1" r="4" fill="#F4ED45"/>
+<text x="70.0" y="260" fill="#5E7186" font-size="10" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,02</text><text x="140.0" y="260" fill="#5E7186" font-size="10" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,1</text><text x="227.50000000000003" y="260" fill="#5E7186" font-size="10" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,2</text><text x="315.0" y="260" fill="#5E7186" font-size="10" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,3</text><text x="402.5" y="260" fill="#5E7186" font-size="10" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,4</text><text x="490.0" y="260" fill="#5E7186" font-size="10" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">0,5</text>
+<text x="60" y="85.66666666666666" fill="#5E7186" font-size="10" text-anchor="end" font-weight="400" style="font-family:'JetBrains Mono',monospace">700</text><text x="60" y="149.0" fill="#5E7186" font-size="10" text-anchor="end" font-weight="400" style="font-family:'JetBrains Mono',monospace">900</text><text x="60" y="212.33333333333334" fill="#5E7186" font-size="10" text-anchor="end" font-weight="400" style="font-family:'JetBrains Mono',monospace">1100</text>
+<text x="290" y="284" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">limiar de decisão</text>
+<text x="40" y="140" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">R$/turno</text>
+<g class="fade3"><circle cx="158" cy="70" r="8" fill="none" stroke="#B5DC4A" stroke-width="2"/>
+<text x="157.5" y="97.95316666666665" fill="#B5DC4A" font-size="12" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">R$ 663</text>
+<text x="430" y="60" fill="#4F86C6" font-size="11.5" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">Floresta</text>
+<text x="430" y="130" fill="#F4ED45" font-size="11.5" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">Naive Bayes</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow dec">decidir · o painel que vai para a reunião</div>
+<h2 class="title sm">Cada modelo no seu melhor limiar</h2>
+<p class="lede" style="max-width:72ch">Seis colunas, e só duas delas são métricas. As outras quatro são o que
+decide de verdade — e nenhuma sai do <code style="font-family:var(--mono);color:var(--v3)">classification_report</code>.</p>
+<div class="mtable" style="margin-top:2.4vh;grid-template-columns:1.25fr .8fr .95fr .95fr 1fr 1.15fr 1.5fr">
+<span class="h">modelo</span><span class="h">limiar</span><span class="h">R$ por turno</span>
+<span class="h">paradas pegas</span><span class="h">o número é honesto?</span><span class="h">tamanho</span>
+<span class="h">custo de manter</span>
+<span class="c">Naive Bayes</span><span class="c num">0,12</span><span class="c num win">R$ 663</span>
+<span class="c num win">85%</span><span class="c lose">não — 0,90 vale 0,60</span><span class="c num">34 números</span>
+<span class="c">recalcular médias</span>
+<span class="c">Floresta · 400 árvores</span><span class="c num">0,25</span><span class="c num">R$ 712</span>
+<span class="c num">77%</span><span class="c win">razoavelmente sim</span><span class="c num">12.400 folhas</span>
+<span class="c">retreinar e versionar</span>
+<span class="c">Árvore · profundidade 4</span><span class="c num">0,12</span><span class="c num">R$ 716</span>
+<span class="c num">79%</span><span class="c">aceitável</span><span class="c num">11 folhas</span>
+<span class="c">vira procedimento escrito</span>
+<span class="c">nunca alarmar</span><span class="c num">—</span><span class="c num lose">R$ 2.493</span>
+<span class="c num lose">0%</span><span class="c">—</span><span class="c num">—</span><span class="c">nenhum</span></div>
+<div class="note frame dec" style="margin-top:2.4vh"><div class="nl">a pergunta que fecha a aula</div>
+<div class="nb">O mais simples é o mais barato. Isso <b>não</b> quer dizer "implante o Naive Bayes". Quer dizer
+que a decisão mudou de pergunta: não é mais <i>qual modelo é melhor</i>, é <b>quem vai ler a saída</b>.
+Regra automática de limiar num CLP → o Naive Bayes ganha em tudo. Número numa tela que um supervisor
+interpreta como risco → ele está fora, e o preço da honestidade são R$ 49 por turno.</div></div></section>
+<section class="slide"><div class="eyebrow dec">desafio · a decisão é sua</div>
+<div class="exhead"><div class="stars">★★★★★</div><div class="exlabel">a recomendação ao gestor</div></div>
+<div class="flush"><p class="prompt">A diretoria aprovou <span class="data">um</span> modelo para a central de
+ar. O gerente de manutenção quer um painel na sala de controle com o percentual de risco de cada compressor,
+atualizado a cada turno. O gerente de TI avisa que o painel roda num CLP antigo, sem Python, e que quem for
+manter isso é o técnico do turno da noite. <span class="hl">Qual você recomenda, e o que você escreve no
+parágrafo de ressalvas?</span></p>
+<div class="answer frame"><div class="al">resposta</div><div class="ab">Não existe resposta única — existe
+resposta <i>justificada</i>. Duas defensáveis: <b>(A) Naive Bayes, mudando o pedido do painel</b> — troca-se
+"percentual de risco" por "posição na fila de manutenção" e ganha-se R$ 49/turno, 34 números que rodam em
+qualquer CLP e uma manutenção que o técnico da noite consegue fazer sozinho; a ressalva escrita é que o
+número interno não é probabilidade e não pode virar percentual em tela nenhuma. <b>(B) Floresta, mantendo o
+painel</b> — paga-se R$ 49/turno pela honestidade do número e assume-se que alguém com Python precisa
+versionar e retreinar. <b>Resposta fraca:</b> "a floresta, porque é mais moderna", ou "o Naive Bayes, porque
+teve AUC maior". A métrica não escolhe: quem escolhe é o <b>uso</b> da saída e <b>quem</b> vai manter o
+sistema. E qualquer uma das duas exige o mesmo parágrafo final: a base é de sete meses, o limiar depende dos
+dois preços atuais, e os dois mudam.</div></div>
+<div class="reveal">pressione <b>R</b> para revelar</div></div></section>
+<section class="slide"><div class="eyebrow dec">decidir · depois que implanta</div>
+<div class="cols"><div><h2 class="title sm">O modelo mais barato de manter do curso</h2>
+<p class="lede">Implantar não é o fim. A fábrica muda, e o modelo <span class="hl">não sabe que mudou</span> —
+ele continua respondendo com a mesma confiança de sempre.</p>
+<ul class="rules" style="margin-top:2.2vh">
+<li class="b1"><span class="k">Mudou o dado que entra</span> — trocaram o compressor, recalibraram o sensor,
+a fábrica passou a rodar dois turnos. As médias de hoje não são as do treino.</li>
+<li class="b2"><span class="k">Mudou a relação</span> — instalaram um secador de ar novo e o ponto de orvalho,
+que não servia para nada, passou a servir.</li>
+<li class="b4"><span class="k">Reajustar aqui é recalcular médias e desvios</span> — 34 números. Na floresta é
+retreinar 400 árvores e versionar o arquivo.</li></ul>
+<div class="note frame dec"><div class="nl">o indicador que se acompanha</div><div class="nb">Não a acurácia —
+ela demora meses para mostrar problema. Acompanhe <b>a média de cada sensor por mês</b> contra a do treino, e
+<b>a taxa de alarmes</b>: se ela dobrar sem que as paradas dobrem, alguma coisa se moveu.</div></div></div>
+<div class="viz"><svg viewBox="0 0 500 300" role="img">
+<path class="draw" pathLength="1" d="M 60 240 L 460 240" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/><path class="draw" pathLength="1" d="M 60 240 L 60 40" stroke="rgba(143,164,183,.35)" stroke-width="1.5" fill="none"/>
+<path class="draw" pathLength="1" d="M 70 170 L 130 165 L 190 172 L 250 168 L 310 174 L 370 169 L 430 173" stroke="#4F86C6" stroke-width="2.2" fill="none"/>
+<path class="draw d2" pathLength="1" d="M 70 170 L 130 168 L 190 160 L 250 142 L 310 118 L 370 92 L 430 70" stroke="#F4ED45" stroke-width="2.2" fill="none" stroke-dasharray="7 5"/>
+<g class="fade3"><text x="430" y="190" fill="#4F86C6" font-size="11" text-anchor="end" font-weight="400" style="font-family:'JetBrains Mono',monospace">o treino</text>
+<text x="430" y="56" fill="#F4ED45" font-size="11" text-anchor="end" font-weight="400" style="font-family:'JetBrains Mono',monospace">a fábrica de hoje</text>
+<text x="250" y="262" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">meses desde a implantação</text>
+<text x="40" y="140" fill="#5E7186" font-size="10.5" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">média do sensor</text>
+<rect x="330" y="86" width="106" height="1.5" fill="none"/>
+<path pathLength="1" d="M 400 78 L 400 168" stroke="#B5DC4A" stroke-width="1.6" stroke-dasharray="4 4"/>
+<text x="400" y="210" fill="#B5DC4A" font-size="11" text-anchor="middle" font-weight="600" style="font-family:'JetBrains Mono',monospace">a distância</text>
+<text x="400" y="226" fill="#B5DC4A" font-size="11" text-anchor="middle" font-weight="400" style="font-family:'JetBrains Mono',monospace">que ninguém vê</text></g>
+</svg></div></div></section>
+<section class="slide"><div class="eyebrow dec">decidir · a folha que fica na parede</div>
+<h2 class="title sm">Sintoma → causa provável → onde olhar → o que fazer</h2>
+<p class="lede" style="max-width:70ch">É esta a peça que vocês vão consultar daqui a seis meses, no trabalho,
+quando o modelo fizer algo estranho às onze da noite.</p>
+<div class="itable" style="margin-top:2.2vh;grid-template-columns:1.15fr 1.25fr 1fr 1.35fr">
+<span class="h">sintoma</span><span class="h">causa provável</span><span class="h">onde olhar</span><span class="h">o que fazer</span>
+<span class="c"><b>O modelo devolve quase só 0,00 e 1,00</b></span><span class="c">Sensores correlacionados: a mesma prova contada várias vezes</span><span class="c">matriz de correlação · planilha aba 5</span><span class="c">Tire uma das gêmeas, ou calibre antes de mostrar o número</span><span class="c"><b>A acurácia é ótima e o recall é péssimo</b></span><span class="c">Base desbalanceada avaliada no limiar 0,50</span><span class="c">matriz de confusão · .py bloco 13</span><span class="c">Esqueça a acurácia. Escolha o limiar pelo custo dos dois erros</span><span class="c"><b>Um sensor não muda nada quando entra</b></span><span class="c">As duas sinos dele coincidem: separação perto de zero</span><span class="c">tabela do modelo · .py bloco 9</span><span class="c">Tire da conta. Aqui ele não é neutro, ele injeta ruído</span><span class="c"><b>A previsão do gabarito não bate com a sua</b></span><span class="c">Semente diferente, ou a limpeza do bloco 3 não rodou</span><span class="c">random_state=7 · .py bloco 3</span><span class="c">Confira as 1.314 linhas depois da limpeza antes de qualquer coisa</span><span class="c"><b>O modelo acredita em valores impossíveis</b></span><span class="c">Distribuição torta com sino ajustada por cima</span><span class="c">histograma do sensor · .py bloco 19</span><span class="c">Verifique a forma. Transforme se melhorar — e meça se melhorou</span><span class="c"><b>O gestor leu 97% e cobrou o resultado</b></span><span class="c">Probabilidade não calibrada apresentada como risco</span><span class="c">curva disse × aconteceu · .py bloco 17</span><span class="c">Reporte posição na fila ou faixa, nunca o número cru</span></div></section>
+<section class="slide"><div class="eyebrow dec">decidir · o caminho inteiro</div>
+<div class="flush"><h2 class="title sm">Doze passos, e a biblioteca faz três</h2>
+<p class="lede" style="max-width:70ch">Os passos <span class="hl">06 e 08</span> são chamadas de função. O
+passo 05 é uma linha. Os outros nove são julgamento — e é por isso que vocês estão aqui e não um script.</p>
+<div class="pipe" style="margin-top:3vh">
+<div class="step frame p1" style="min-width:172px"><div class="sn">01</div><div class="st">Definir a pergunta e o preço dos dois erros</div></div><div class="step frame p1" style="min-width:172px"><div class="sn">02</div><div class="st">Ler a base e olhar o que falta</div></div><div class="step frame p1" style="min-width:172px"><div class="sn">03</div><div class="st">Achar o que é impossível — só você sabe</div></div><div class="step frame p1" style="min-width:172px"><div class="sn">04</div><div class="st">Conferir a forma de cada sensor</div></div><div class="step frame p2" style="min-width:172px"><div class="sn">05</div><div class="st">Separar treino e teste, estratificado</div></div><div class="step frame p2" style="min-width:172px"><div class="sn">06</div><div class="st">Treinar: prior, médias e desvios</div></div><div class="step frame p2" style="min-width:172px"><div class="sn">07</div><div class="st">Ler a tabela do modelo e cortar o que não separa</div></div><div class="step frame p3" style="min-width:172px"><div class="sn">08</div><div class="st">Medir AUC e Brier, não só acurácia</div></div><div class="step frame p3" style="min-width:172px"><div class="sn">09</div><div class="st">Conferir disse × aconteceu</div></div><div class="step frame p4" style="min-width:172px"><div class="sn">10</div><div class="st">Varrer o limiar pela conta em reais</div></div><div class="step frame p4" style="min-width:172px"><div class="sn">11</div><div class="st">Escrever a recomendação e as ressalvas</div></div><div class="step frame p4" style="min-width:172px"><div class="sn">12</div><div class="st">Definir o que monitorar depois</div></div></div>
+<div class="cap" style="margin-top:3vh">PREPARAR · TREINAR · AVALIAR · DECIDIR &nbsp;—&nbsp; as cores são as mesmas dos slides, das abas e da cola</div></div></section>
+<section class="slide"><div class="eyebrow dec">isto foi só o começo</div>
+<div class="flush"><h2 class="title sm">O que ficou de fora — e ficou de propósito</h2>
+<p class="lede" style="max-width:70ch">Vocês não aprenderam Naive Bayes hoje. Aprenderam a
+<span class="hl">usar</span> Naive Bayes num problema de fábrica, o que é outra coisa — e é a que paga salário.</p>
+<div class="boxes t3" style="margin-top:3vh">
+<div class="box frame k3"><div class="n">numa pós-graduação</div><div class="t">A matemática</div>
+<div class="d">A derivação do teorema, máxima verossimilhança, a suavização de Laplace com o α,
+por que a fronteira do Naive Bayes gaussiano é quadrática, e a calibração de verdade — Platt e isotônica.</div></div>
+<div class="box frame k2"><div class="n">nas próximas unidades</div><div class="t">O que vem aí</div>
+<div class="d">K-means e o aprendizado não supervisionado, regressão logística, e a comparação formal entre
+modelos. O vocabulário de hoje — prior, limiar, custo, calibração — volta em todos.</div></div>
+<div class="box frame k4"><div class="n">só em produção</div><div class="t">O que ninguém ensina</div>
+<div class="d">O sensor que muda de unidade sem avisar, o histórico que alguém reprocessou, o modelo que
+ninguém revalidou em dois anos, e a reunião em que pedem "a probabilidade" e você precisa dizer que não
+tem.</div></div></div>
+<div class="note frame warn" style="margin-top:3vh"><div class="nl">a ressalva que fecha as três aulas</div>
+<div class="nb">Árvore, floresta, Bayes: <b>troca-se o algoritmo e o método continua o mesmo</b> — descobrir o
+preço do erro, limpar o que é impossível, medir a coisa certa, escolher o corte, escrever a ressalva. A
+biblioteca calculou médias, desvios e multiplicações. Vocês decidiram o que a fábrica faz na segunda-feira.
+Essa parte não tem <code>import</code>.</div></div></div></section>
+</div>
+<div class="brand">SENAI-SP · MACHINE LEARNING APLICADA À INDÚSTRIA</div>
+<div class="counter"><b id="cur">01</b> / <span id="tot">29</span></div>
+<div class="hint">← → navega · R revela</div>
+<div class="progress" id="prog"></div>
+<script>
+const deck=document.getElementById('deck');
+const slides=[...deck.querySelectorAll('.slide')];let i=0;const tot=slides.length;
+document.getElementById('tot').textContent=String(tot).padStart(2,'0');
+const prog=document.getElementById('prog');
+function show(n){
+ const target=Math.max(0,Math.min(tot-1,n));
+ const dir=target>=i?1:-1;
+ if(target!==i){
+   const out=slides[i];
+   out.style.setProperty('--dir',dir);
+   out.classList.remove('active'); out.classList.add('leaving');
+   setTimeout(()=>out.classList.remove('leaving'),440);
+ }
+ i=target;
+ const inc=slides[i];
+ inc.style.setProperty('--dir',dir);
+ inc.classList.add('active');
+ document.getElementById('cur').textContent=String(i+1).padStart(2,'0');
+ prog.style.width=((i+1)/tot*100)+'%';
+ slides.forEach(s=>s.querySelectorAll('.answer').forEach(a=>a.classList.remove('show')));
+}
+function tg(){const a=slides[i].querySelector('.answer');if(a)a.classList.toggle('show');}
+document.addEventListener('keydown',e=>{
+ if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(i+1);}
+ else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(i-1);}
+ else if(e.key==='Home')show(0);else if(e.key==='End')show(tot-1);
+ else if(e.key.toLowerCase()==='r')tg();});
+deck.addEventListener('click',e=>{if(e.target.closest('.answer'))return;show(e.clientX/window.innerWidth<0.32?i-1:i+1);});
+let tx=0;deck.addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+deck.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>40)show(dx<0?i+1:i-1);});
+show(0);
+</script>
+</body></html>
