@@ -1,0 +1,1071 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Da Probabilidade à Decisão — Regressão Logística · SENAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#222D3B; --bg2:#1B2531; --bg3:#273343;
+ --ink:#E8EEF4; --muted:#93A4B7; --faint:#5E7186;
+ --line:rgba(143,164,183,.12); --bru:rgba(143,164,183,.55);
+ --v1:#9168D6; --v2:#4F86C6; --v3:#2FB89A; --v4:#56C877; --v5:#B5DC4A; --v6:#F4ED45;
+ --good:#56C877; --bad:#F4ED45;
+ --serif:'Lora',Georgia,serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+ --spectral:linear-gradient(90deg,var(--v1),var(--v2),var(--v3),var(--v4),var(--v5),var(--v6));
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:var(--body);color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased;background:var(--bg)}
+.deck{position:fixed;inset:0;background:
+  linear-gradient(rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  linear-gradient(90deg,rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  radial-gradient(1100px 700px at 80% 8%, rgba(47,184,154,.06), transparent 60%),
+  radial-gradient(900px 650px at 10% 92%, rgba(145,104,214,.06), transparent 60%),
+  linear-gradient(160deg,var(--bg),var(--bg2))}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:6vh 6.5vw 7vh;opacity:0;transition:opacity .5s}
+.slide.active{display:flex;opacity:1}
+.frame{position:relative;--c:var(--bru);background:
+  linear-gradient(var(--c),var(--c)) 0 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 0 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 100%/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 100%/2px 18px no-repeat}
+.eyebrow{font-family:var(--mono);font-size:clamp(11px,1.05vw,13px);letter-spacing:3px;text-transform:uppercase;color:var(--v3);display:flex;align-items:center;gap:12px;margin-bottom:2.2vh}
+.eyebrow::before{content:"";width:30px;height:2px;background:var(--spectral)}
+.eyebrow.prep{color:var(--v1)} .eyebrow.trei{color:var(--v2)} .eyebrow.trad{color:var(--v3)}
+.eyebrow.aval{color:var(--v4)} .eyebrow.deci{color:var(--v5)} .eyebrow.ex{color:var(--v6)}
+.title{font-family:var(--serif);font-weight:600;font-size:clamp(26px,4.1vw,52px);line-height:1.05;letter-spacing:-.5px}
+.spectral-text{background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{font-size:clamp(14px,1.6vw,19px);color:var(--muted);max-width:48ch;line-height:1.55;margin-top:1.8vh}
+.lede .hl{color:var(--ink);font-weight:500}
+.cap{font-family:var(--mono);font-size:clamp(11px,1.05vw,13px);color:var(--muted);line-height:1.5}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(24px,3.4vw,54px);align-items:center;flex:1;min-height:0}
+.cols.r{grid-template-columns:1.08fr .92fr}.cols.l{grid-template-columns:.92fr 1.08fr}
+.flush{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+.viz{width:100%;display:flex;align-items:center;justify-content:center;min-height:0}
+.viz svg{width:100%;height:auto;max-height:72vh;display:block;overflow:visible}
+.note{padding:14px 17px;margin-top:13px}
+.note .nl{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;color:var(--v3)}
+.note .nb{font-size:13.5px;color:#D6DEE7;line-height:1.5}
+.note.warn .nl{color:var(--v6)} .note.ok .nl{color:var(--v4)} .note.violet .nl{color:var(--v1)} .note.blue .nl{color:var(--v2)} .note.lime .nl{color:var(--v5)}
+.rules{list-style:none;margin-top:6px}
+.rules li{position:relative;padding-left:20px;margin-bottom:10px;font-size:clamp(13px,1.3vw,16px);color:#D2DAE2;max-width:46ch;line-height:1.45}
+.rules li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:2px;background:var(--v3)}
+.rules li.b1::before{background:var(--v1)}.rules li.b2::before{background:var(--v2)}.rules li.b4::before{background:var(--v4)}
+.rules li.b5::before{background:var(--v5)}.rules li.bad::before{background:var(--v6)}
+.rules li .k{color:var(--ink);font-weight:600}
+.eqbox{padding:16px 20px;margin:12px 0;display:inline-block}
+.eq{font-family:var(--serif);font-size:clamp(19px,2.5vw,32px);font-weight:600;line-height:1.5}
+.eq .op{color:var(--muted)} .eq .n{font-family:var(--mono);font-size:.52em;color:var(--faint);vertical-align:super}
+.eq .t3{color:var(--v3)} .eq .t2{color:var(--v2)} .eq .t5{color:var(--v5)} .eq .t1{color:var(--v1)}
+.boxes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%}
+.boxes.c5{grid-template-columns:repeat(5,1fr);gap:12px}
+.box{padding:20px 18px;border-radius:6px;background:rgba(20,28,38,.55)}
+.box .n{font-family:var(--mono);font-size:11.5px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.box .t{font-family:var(--serif);font-weight:600;font-size:clamp(16px,1.7vw,22px);margin-bottom:8px}
+.box .d{font-size:13px;color:var(--muted);line-height:1.5}
+.box.k1{border-top:2px solid var(--v1)}.box.k1 .n{color:var(--v1)}
+.box.k2{border-top:2px solid var(--v2)}.box.k2 .n{color:var(--v2)}
+.box.k3{border-top:2px solid var(--v3)}.box.k3 .n{color:var(--v3)}
+.box.k4{border-top:2px solid var(--v4)}.box.k4 .n{color:var(--v4)}
+.box.k5{border-top:2px solid var(--v5)}.box.k5 .n{color:var(--v5)}
+.box.novo{background:rgba(47,184,154,.10)}
+.itable{display:grid;gap:0;width:100%;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.itable.c4{grid-template-columns:1.15fr 1.25fr 1fr 1.35fr}
+.itable.c3{grid-template-columns:1fr 1.3fr 1.3fr}
+.itable .h{font-family:var(--mono);font-size:11.5px;letter-spacing:1px;text-transform:uppercase;padding:12px 14px;color:var(--ink);background:rgba(20,28,38,.7);border-bottom:1px solid var(--line)}
+.itable .c{padding:11px 14px;font-size:12.8px;color:#D2DAE2;border-bottom:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;line-height:1.4}
+.itable .c b{color:var(--ink)} .itable .c .mono{font-family:var(--mono);font-size:12px;color:var(--v3)}
+.pipe{display:flex;flex-wrap:wrap;gap:10px;width:100%}
+.step{flex:1 1 0;min-width:112px;padding:12px 12px 14px;border-radius:6px;background:rgba(20,28,38,.55);border-left:3px solid var(--v3)}
+.step .sn{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--v3);margin-bottom:5px}
+.step .st{font-size:13px;color:#D2DAE2;line-height:1.3}
+.exhead{display:flex;align-items:center;gap:16px;margin-bottom:2vh}
+.stars{font-family:var(--mono);font-size:clamp(15px,1.7vw,21px);letter-spacing:3px;background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+.exlabel{font-family:var(--mono);font-size:11.5px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.prompt{font-size:clamp(15px,1.8vw,22px);color:var(--ink);max-width:60ch;line-height:1.45;font-weight:500}
+.prompt .data{font-family:var(--mono);color:var(--v3)}
+.answer{margin-top:2.6vh;padding:18px 22px;max-width:66ch;display:none}
+.answer.show{display:block;animation:fade .4s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.answer .al{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--good);margin-bottom:9px}
+.answer .ab{font-size:clamp(13.5px,1.45vw,17px);color:#DCE7E0;line-height:1.55}
+.answer .ab b{color:var(--v5)}
+.reveal{margin-top:2.2vh;font-family:var(--mono);font-size:12px;color:var(--faint)}.reveal b{color:var(--v3)}
+.counter{position:fixed;right:2.2vw;bottom:2.4vh;font-family:var(--mono);font-size:12px;color:var(--faint);z-index:30}.counter b{color:var(--v6)}
+.brand{position:fixed;left:6.5vw;bottom:2.4vh;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:2px;z-index:30}
+.progress{position:fixed;left:0;bottom:0;height:2px;z-index:30;background:var(--spectral);transition:width .5s}
+.hint{position:fixed;right:2.2vw;top:2.4vh;font-family:var(--mono);font-size:11px;color:var(--faint);z-index:30}
+.bridge{font-family:var(--mono);font-size:clamp(10.5px,1vw,12.5px);color:var(--faint);letter-spacing:.5px;margin-top:2vh}
+.bridge b{color:var(--v3);font-weight:500}
+.numgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:2vh}
+.num{padding:16px 14px;border-radius:6px;background:rgba(20,28,38,.55)}
+.num .nv{font-family:var(--serif);font-weight:600;font-size:clamp(22px,2.6vw,34px);color:var(--v3)}
+.num .nv.bad{color:var(--v6)} .num .nv.ok{color:var(--v4)}
+.num .nk{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-top:6px}
+@media(max-width:860px){.cols,.cols.r,.cols.l,.boxes,.boxes.c5,.numgrid{grid-template-columns:1fr;gap:14px}.itable.c4,.itable.c3{grid-template-columns:1fr}}
+
+@keyframes slideEnter{from{opacity:0;transform:translateX(calc(var(--dir,1)*48px))}to{opacity:1;transform:none}}
+@keyframes slideLeave{from{opacity:1;transform:none}to{opacity:0;transform:translateX(calc(var(--dir,1)*-48px)) scale(.99)}}
+@keyframes reveal{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes popIn{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes growUp{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes growRight{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes drawln{to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.slide.active{animation:slideEnter .6s cubic-bezier(.22,.61,.36,1) both;z-index:2}
+.slide.leaving{display:flex!important;animation:slideLeave .42s ease both;z-index:1;pointer-events:none}
+.slide.active .eyebrow{animation:reveal .55s .02s both}
+.slide.active .title{animation:reveal .6s .12s both}
+.slide.active .lede{animation:reveal .6s .22s both}
+.slide.active .cap{animation:reveal .6s .5s both}
+.slide.active .bridge{animation:reveal .6s .56s both}
+.slide.active .eqbox{animation:reveal .6s .3s both}
+.slide.active .exhead{animation:reveal .55s .1s both}
+.slide.active .prompt{animation:reveal .6s .22s both}
+.slide.active .reveal{animation:reveal .6s .5s both}
+.slide.active .note{animation:reveal .65s .42s both}
+.slide.active .rules li{animation:reveal .5s both}
+.slide.active .rules li:nth-child(1){animation-delay:.3s}
+.slide.active .rules li:nth-child(2){animation-delay:.4s}
+.slide.active .rules li:nth-child(3){animation-delay:.5s}
+.slide.active .rules li:nth-child(4){animation-delay:.6s}
+.slide.active .rules li:nth-child(5){animation-delay:.7s}
+.slide.active .boxes .box,.slide.active .numgrid .num{animation:reveal .6s both}
+.slide.active .boxes .box:nth-child(1),.slide.active .numgrid .num:nth-child(1){animation-delay:.24s}
+.slide.active .boxes .box:nth-child(2),.slide.active .numgrid .num:nth-child(2){animation-delay:.34s}
+.slide.active .boxes .box:nth-child(3),.slide.active .numgrid .num:nth-child(3){animation-delay:.44s}
+.slide.active .boxes .box:nth-child(4),.slide.active .numgrid .num:nth-child(4){animation-delay:.54s}
+.slide.active .boxes .box:nth-child(5){animation-delay:.64s}
+.slide.active .itable .h{animation:reveal .5s .2s both}
+.slide.active .itable .c{animation:fadein .7s .42s both}
+.slide.active .pipe .step{animation:reveal .5s both}
+.slide.active .pipe .step:nth-child(1){animation-delay:.20s}
+.slide.active .pipe .step:nth-child(2){animation-delay:.30s}
+.slide.active .pipe .step:nth-child(3){animation-delay:.40s}
+.slide.active .pipe .step:nth-child(4){animation-delay:.50s}
+.slide.active .pipe .step:nth-child(5){animation-delay:.60s}
+.slide.active .viz{animation:reveal .65s .18s both}
+.slide.active .viz .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:drawln 1.1s .45s ease forwards}
+.slide.active .viz .draw.d2{animation-delay:1.0s}
+.slide.active .viz .draw.d3{animation-delay:1.5s}
+.slide.active .viz .pop{transform-box:fill-box;transform-origin:center;animation:popIn .5s both;animation-delay:calc(.5s + var(--i,0)*0.06s)}
+.slide.active .viz .grow{transform-box:fill-box;transform-origin:bottom;animation:growUp .7s .45s cubic-bezier(.22,.61,.36,1) both}
+.slide.active .viz .growx{transform-box:fill-box;transform-origin:left;animation:growRight .8s both;animation-delay:calc(.45s + var(--i,0)*0.12s)}
+.slide.active .viz .fade{animation:fadein .8s .5s both}
+.slide.active .viz .fade2{animation:fadein .8s 1.2s both}
+.slide.active .viz .fade3{animation:fadein .8s 1.8s both}
+@media (prefers-reduced-motion: reduce){
+ .slide.active,.slide.leaving{animation:none!important}
+ .slide.active *{animation:none!important;opacity:1!important;transform:none!important;stroke-dashoffset:0!important}
+}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <linearGradient id="gsp" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9168D6"/><stop offset=".35" stop-color="#2FB89A"/><stop offset=".7" stop-color="#56C877"/><stop offset="1" stop-color="#F4ED45"/></linearGradient>
+ <linearGradient id="gh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9168D6"/><stop offset=".4" stop-color="#2FB89A"/><stop offset=".7" stop-color="#B5DC4A"/><stop offset="1" stop-color="#F4ED45"/></linearGradient>
+ <linearGradient id="gv" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#4F86C6"/><stop offset="1" stop-color="#F4ED45"/></linearGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <filter id="g1"><feGaussianBlur stdDeviation="1.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs></svg>
+
+<div class="deck" id="deck">
+
+<section class="slide active">
+ <div class="eyebrow">regressão logística · senai · machine learning aplicada à indústria</div>
+ <div class="cols r">
+  <div><div class="title">Da Probabilidade<br>à <span class="spectral-text">Decisão</span></div>
+   <p class="lede">Os mesmos sensores da aula passada. Uma pergunta nova: <span class="hl">esta prensa vai quebrar nesta semana?</span> Mudou a pergunta — mudou tudo que vem depois dela.</p>
+   <p class="cap" style="margin-top:3vh">4 prensas · 800 semanas de histórico · uma decisão de manutenção por semana</p></div>
+  <div class="viz" data-viz="hero"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow prep">etapa 1 · preparar</div>
+ <div class="cols r">
+  <div><div class="title">Os dois erros<br>não custam igual</div>
+   <p class="lede">O PCP decide toda segunda quais prensas param para manutenção antecipada. Errar para mais e errar para menos <span class="hl">têm preços diferentes</span> — e é isso que vai mandar em tudo.</p>
+   <ul class="rules">
+    <li class="b5"><span class="k">Antecipar à toa:</span> 40 min de linha parada. <span class="k">R$ 800.</span></li>
+    <li class="bad"><span class="k">Deixar quebrar:</span> 4 h de linha + refugo do lote. <span class="k">R$ 6.400.</span></li>
+    <li class="b1">Um erro custa <span class="k">oito vezes</span> o outro. Guarde esse número.</li>
+   </ul>
+   <div class="frame note violet"><div class="nl">e mais uma coisa</div><div class="nb">O rótulo "quebrou" não saiu de sensor nenhum. <b>Alguém decidiu</b> que uma parada acima de 30 min conta como quebra. A etiqueta é uma decisão de negócio disfarçada de dado.</div></div>
+  </div>
+  <div class="viz" data-viz="balanca"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow">o mapa da aula</div>
+ <div class="flush">
+  <div class="title" style="margin-bottom:2.4vh">Quatro etapas você já conhece.<br>Uma é <span class="spectral-text">nova</span>.</div>
+  <div class="boxes c5">
+   <div class="box k1"><div class="n">etapa 1</div><div class="t">PREPARAR</div><div class="d">a pergunta binária, a limpeza, as dummies, a régua comum</div></div>
+   <div class="box k2"><div class="n">etapa 2</div><div class="t">TREINAR</div><div class="d">a curva em S e duas linhas de scikit-learn</div></div>
+   <div class="box k3 novo"><div class="n">etapa 3 · nova</div><div class="t">TRADUZIR</div><div class="d">o modelo responde em log-odds. Alguém tem que traduzir.</div></div>
+   <div class="box k4"><div class="n">etapa 4</div><div class="t">AVALIAR</div><div class="d">matriz de confusão e as seis métricas</div></div>
+   <div class="box k5"><div class="n">etapa 5</div><div class="t">DECIDIR</div><div class="d">o custo, o limiar, o relatório e o drift</div></div>
+  </div>
+  <p class="lede" style="max-width:74ch;margin-top:3vh">Na Regressão Linear o modelo respondia <span class="hl">em minutos</span> — a unidade do problema. Aqui ele responde em <span class="hl">log-odds</span>, que não é unidade de nada. É por isso que existe uma caixa a mais.</p>
+  <p class="bridge">quando travar, a pergunta é sempre a mesma: <b>a etapa anterior está mesmo pronta?</b></p>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow prep">etapa 1 · preparar</div>
+ <div class="cols r">
+  <div><div class="title">A base chega suja</div>
+   <p class="lede">800 semanas de histórico. Nem todas servem — e o primeiro <span class="cap">head()</span> já denuncia uma delas.</p>
+   <ul class="rules">
+    <li class="b1"><span class="k">52 temperaturas ausentes</span> — o sensor do mancal ficou offline.</li>
+    <li class="b1"><span class="k">14 vibrações iguais a 0,00</span> — sensor travado. Prensa em operação não vibra zero.</li>
+    <li class="bad"><span class="k">9 leituras entre 38 e 47 mm/s</span> — a essa vibração a prensa teria se desmontado.</li>
+    <li class="b4">Sobram <span class="k">725 semanas</span>, e <span class="k">122 delas</span> (16,8%) terminaram em quebra.</li>
+   </ul>
+   <div class="frame note warn"><div class="nl">cuidado</div><div class="nb">Limpar não é apagar o que incomoda. É apagar o que é <b>fisicamente impossível</b>. Se você não sabe dizer por que aquela linha é impossível, ela fica.</div></div>
+  </div>
+  <div class="viz" data-viz="sujeira"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow prep">etapa 1 · preparar</div>
+ <div class="cols l">
+  <div class="viz" data-viz="reguas"></div>
+  <div><div class="title">A régua comum</div>
+   <p class="lede">Vibração vai de 2,1 a 7,8. Horas desde a manutenção vão de 167 a 1.889. <span class="hl">Somar os dois na mesma conta é somar milímetro com quilômetro.</span></p>
+   <div class="eqbox frame"><div class="eq"><span class="t2">z</span> <span class="op">=</span> a <span class="op">+</span> <span class="t3">b₁</span>·vibração <span class="op">+</span> <span class="t5">b₂</span>·horas</div></div>
+   <p class="lede" style="margin-top:1vh">O coeficiente das horas sai em 0,00234 e o da vibração em 0,88. <span class="hl">Não dá para comparar os dois</span> — não porque um seja fraco, mas porque as réguas são diferentes.</p>
+   <div class="frame note blue"><div class="nl">o aviso na sua tela</div><div class="nb">Sem padronizar, o <span class="cap">LogisticRegression()</span> padrão não converge e imprime <b>ConvergenceWarning</b>. Com <span class="cap">StandardScaler</span>, converge sozinho. O computador reclama antes de você perceber.</div></div>
+  </div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow prep">etapa 1 · preparar</div>
+ <div class="cols r">
+  <div><div class="title">Dividir sem trapacear</div>
+   <p class="lede">Só 16,8% das semanas têm quebra. Um sorteio cego pode deixar o conjunto de teste <span class="hl">quase sem quebra nenhuma</span> — e aí a nota do modelo não quer dizer nada.</p>
+   <div class="eqbox frame"><div class="eq" style="font-family:var(--mono);font-size:clamp(13px,1.5vw,18px)">train_test_split(X, y, test_size=0.25,<br>&nbsp;&nbsp;random_state=7, <span class="t3">stratify=y</span>)</div></div>
+   <ul class="rules">
+    <li class="b1"><span class="k">543 semanas de treino</span>, com 91 quebras</li>
+    <li class="b1"><span class="k">182 semanas de teste</span>, com 31 quebras</li>
+    <li class="b4"><span class="cap">stratify=y</span> garante os mesmos 16,8% dos dois lados</li>
+   </ul>
+   <p class="bridge">na Regressão Linear isto era opcional · aqui é <b>condição para a nota valer</b></p>
+  </div>
+  <div class="viz" data-viz="estratifica"></div>
+ </div></section>
+
+<section class="slide ex">
+ <div class="eyebrow ex">exercício · prática guiada</div>
+ <div class="flush">
+  <div class="exhead"><span class="stars">★ ☆ ☆ ☆ ☆</span><span class="exlabel">etapa 1 · preparar</span></div>
+  <p class="prompt">A coluna <span class="data">turno</span> tem três valores: <span class="data">manhã · tarde · noite</span>.<br>Quantas colunas 0/1 entram no modelo — e por quê essa quantidade?</p>
+  <div class="reveal">pressione <b>R</b> para revelar a resposta</div>
+  <div class="answer frame"><div class="al">resposta</div><div class="ab"><b>Duas</b>: <span class="cap">turno_noite</span> e <span class="cap">turno_tarde</span>. A manhã vira a <b>referência</b> — quando as duas colunas valem 0, é manhã. Colocar as três seria dizer a mesma coisa duas vezes, e o modelo não sabe escolher entre coeficientes que se anulam. É a <b>regra n−1</b>, a mesma da Regressão Linear.</div></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trei">etapa 2 · treinar</div>
+ <div class="cols l">
+  <div class="viz" data-viz="retavss"></div>
+  <div><div class="title">Por que a reta<br>não serve aqui</div>
+   <p class="lede">A resposta agora só tem dois valores: <span class="hl">0 ou 1</span>. Se você passar uma reta por esses pontos, ela vai atravessar o 1 e furar o 0.</p>
+   <ul class="rules">
+    <li class="bad">Uma prensa com vibração alta receberia <span class="k">probabilidade 1,4</span>. Não existe.</li>
+    <li class="bad">Uma com vibração baixa receberia <span class="k">−0,2</span>. Também não existe.</li>
+    <li class="b3">Precisamos de uma curva que <span class="k">nunca saia de 0 a 1</span> — e que ainda assim seja uma soma comum por dentro.</li>
+   </ul>
+   <p class="bridge">🐍 a mudança no código é <b>uma palavra</b>: LinearRegression → LogisticRegression</p>
+  </div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trad">etapa 3 · traduzir</div>
+ <div class="cols r">
+  <div><div class="title">Chance, e não<br>probabilidade</div>
+   <p class="lede">A probabilidade anda de 0 a 1 e <span class="hl">trava nas pontas</span>. A chance (odds) não trava: vai de zero ao infinito. E o logaritmo dela vai de −∞ a +∞.</p>
+   <div class="eqbox frame">
+    <div class="eq"><span class="n">1</span> chance <span class="op">=</span> <span class="t3">p ÷ (1 − p)</span></div>
+    <div class="eq"><span class="n">2</span> logit <span class="op">=</span> <span class="t2">ln(chance)</span></div>
+   </div>
+   <div class="frame note"><div class="nl">o que isso resolve</div><div class="nb">p = 0,20 dá logit <b>−1,386</b>. p = 0,80 dá <b>+1,386</b>. Simétricos. Na escala da probabilidade eles não pareciam. <b>É no logit que a régua fica reta</b> — e reta é onde a gente já sabe somar.</div></div>
+  </div>
+  <div class="viz" data-viz="reguaodds"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trei">etapa 2 · treinar</div>
+ <div class="cols l">
+  <div class="viz" data-viz="curvas"></div>
+  <div><div class="title">A curva em S,<br>por inteiro</div>
+   <p class="lede">Três passos, nesta ordem. O primeiro é a mesma soma da Regressão Linear.</p>
+   <div class="eqbox frame">
+    <div class="eq"><span class="n">1</span> <span class="t2">z</span> <span class="op">=</span> a <span class="op">+</span> b₁x₁ <span class="op">+</span> b₂x₂ <span class="op">+</span> … <span class="op">+</span> bₙxₙ</div>
+    <div class="eq"><span class="n">2</span> chance <span class="op">=</span> <span class="t3">e<sup>z</sup></span></div>
+    <div class="eq"><span class="n">3</span> <span class="t5">p</span> <span class="op">=</span> 1 ÷ (1 <span class="op">+</span> e<sup>−z</sup>)</div>
+   </div>
+   <div class="frame note ok"><div class="nl">três coisas para reparar</div><div class="nb">Em <b>z = 0</b> a curva passa exatamente por 0,5. Nas pontas ela <b>achata</b>: de z = 4 para z = 6 quase nada muda. E ela <b>nunca chega a 0 nem a 1</b> — o modelo nunca tem certeza.</div></div>
+  </div>
+ </div></section>
+
+<section class="slide ex">
+ <div class="eyebrow ex">exercício · prática guiada</div>
+ <div class="flush">
+  <div class="exhead"><span class="stars">★ ★ ☆ ☆ ☆</span><span class="exlabel">etapa 3 · traduzir</span></div>
+  <p class="prompt">Uma prensa recebeu <span class="data">p = 0,80</span> de probabilidade de quebrar.<br>Qual é a <span class="hl">chance</span> dela? E o <span class="hl">logit</span>?<br>Depois: o que acontece com o logit se p for exatamente 0,50?</p>
+  <div class="reveal">pressione <b>R</b> para revelar a resposta</div>
+  <div class="answer frame"><div class="al">resposta</div><div class="ab">chance = 0,80 ÷ 0,20 = <b>4,0</b> — quatro para um. logit = ln(4,0) = <b>1,386</b>.<br>Com p = 0,50: chance = 0,5 ÷ 0,5 = <b>1,0</b>, e ln(1) = <b>0</b>. O logit zero é o ponto de equilíbrio da curva — <b>é daí que sai o famoso 0,5</b>, e você vai ver daqui a pouco que ele não tem nada de sagrado.</div></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trei">etapa 2 · treinar</div>
+ <div class="cols r">
+  <div><div class="title">Duas linhas.<br>É isso.</div>
+   <p class="lede">Toda a matemática do slide anterior está dentro do <span class="cap">.fit()</span>. Você não vai escrevê-la — vai <span class="hl">comandá-la</span>.</p>
+   <div class="eqbox frame"><div class="eq" style="font-family:var(--mono);font-size:clamp(13px,1.5vw,18px)">modelo = <span class="t3">LogisticRegression</span>(max_iter=1000)<br>modelo.<span class="t3">fit</span>(X_tr, y_tr)</div></div>
+   <ul class="rules">
+    <li class="b2"><span class="k">O que a biblioteca fez:</span> procurou os coeficientes que melhor separam quebra de não-quebra, testando milhares de combinações.</li>
+    <li class="b3"><span class="k">O que ela não fez:</span> escolher quais sensores entram, decidir o limiar, ler o sinal do coeficiente, dizer se implanta.</li>
+   </ul>
+   <p class="bridge">o <span class="cap">max_iter=1000</span> está ali porque não padronizamos ainda · <b>é o computador pedindo a régua comum</b></p>
+  </div>
+  <div class="viz" data-viz="caixapreta"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trad">etapa 3 · traduzir</div>
+ <div class="cols l">
+  <div class="viz" data-viz="histo"></div>
+  <div><div class="title">O modelo não<br>responde "sim"</div>
+   <p class="lede">Ele responde <span class="cap">0,187</span>. É o <span class="cap">predict_proba</span> — e ele é a saída honesta do modelo.</p>
+   <ul class="rules">
+    <li class="b3">A menor probabilidade das 182 semanas de teste: <span class="k">0,001</span></li>
+    <li class="b3">A maior: <span class="k">0,799</span>. <span class="k">Nunca 1,0.</span></li>
+    <li class="bad">O <span class="cap">.predict()</span> esconde isso de você: ele já aplicou um corte em 0,5 sem perguntar.</li>
+   </ul>
+   <div class="frame note warn"><div class="nl">o erro mais comum da turma</div><div class="nb">Dizer "o modelo errou essa". O modelo disse <b>0,42</b>. Quem transformou 0,42 em "não vai quebrar" foi <b>o limiar</b> — e o limiar é seu.</div></div>
+  </div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trad">etapa 3 · traduzir</div>
+ <div class="cols r">
+  <div><div class="title">Lendo o coeficiente</div>
+   <p class="lede">Na Regressão Linear, o coeficiente era <span class="hl">minutos por unidade</span>. Aqui não é. Ele está em log-odds — e para virar português, precisa de uma exponencial.</p>
+   <div class="eqbox frame"><div class="eq">vezes mais chance <span class="op">=</span> <span class="t3">e<sup>coeficiente</sup></span></div></div>
+   <ul class="rules">
+    <li class="b3">vibração: coef 0,878 → <span class="k">e<sup>0,878</sup> = 2,41</span>. Cada mm/s a mais <span class="k">multiplica a chance por 2,4</span>.</li>
+    <li class="b3">turno noite: coef 0,777 → <span class="k">2,17</span>. A noite tem <span class="k">2,2 vezes</span> a chance da manhã.</li>
+    <li class="b4">E a taxa real bate: noite <span class="k">23,6%</span> · manhã <span class="k">16,8%</span> · tarde <span class="k">12,1%</span>.</li>
+   </ul>
+   <p class="bridge">🐍 <span class="cap">np.exp(modelo.coef_[0])</span> · uma linha, e o coeficiente vira frase de chão de fábrica</p>
+  </div>
+  <div class="viz" data-viz="expcoef"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trad">etapa 3 · traduzir</div>
+ <div class="cols l">
+  <div class="viz" data-viz="confundidor"></div>
+  <div><div class="title">O coeficiente<br>com o sinal errado</div>
+   <p class="lede">A cada <span class="hl">100 horas a mais</span> sem revisão, o modelo diz que a chance de quebrar <span class="hl">cai 16%</span>. Isso é absurdo. E o modelo está certo.</p>
+   <div class="eqbox frame"><div class="eq">e<sup>−0,0017 × 100</sup> <span class="op">=</span> <span class="t5">0,84</span></div></div>
+   <ul class="rules">
+    <li class="b1">As prensas que ficam <span class="k">muito tempo</span> sem revisão são as de <span class="k">baixa produção</span> — e elas quebram menos.</li>
+    <li class="b1">Correlação entre horas e carga de produção: <span class="k">−0,909</span>.</li>
+    <li class="b4">Coloque a carga no modelo e o coeficiente das horas <span class="k">vira positivo (+0,0017)</span>. A física volta ao lugar.</li>
+   </ul>
+   <div class="frame note warn"><div class="nl">a lição</div><div class="nb">O coeficiente não mente. Ele responde à pergunta que você fez — e você perguntou sobre horas <b>sem contar quem produz mais</b>. Um sinal esquisito é um convite para ir ao chão de fábrica, não para apagar a variável.</div></div>
+  </div>
+ </div></section>
+
+<section class="slide ex">
+ <div class="eyebrow ex">exercício · prática guiada</div>
+ <div class="flush">
+  <div class="exhead"><span class="stars">★ ★ ★ ☆ ☆</span><span class="exlabel">etapa 3 · traduzir</span></div>
+  <p class="prompt">O coeficiente de <span class="data">trocas_ferramenta</span> deu <span class="data">0,196</span>.<br>Traduza para o encarregado da estamparia, em uma frase, <span class="hl">sem usar a palavra coeficiente</span>.</p>
+  <div class="reveal">pressione <b>R</b> para revelar a resposta</div>
+  <div class="answer frame"><div class="al">resposta</div><div class="ab">e<sup>0,196</sup> = <b>1,22</b>. "Cada troca de ferramenta a mais na semana <b>aumenta em 22% a chance</b> daquela prensa dar parada não programada." E o encarregado já sabe o que fazer com isso: semana de muita troca é semana de olhar a prensa. <br><br>Repare que <b>não</b> se diz "aumenta a probabilidade em 22%" — o que multiplica por 1,22 é a <b>chance</b>, não a probabilidade.</div></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow trad">etapa 3 · traduzir</div>
+ <div class="cols r">
+  <div><div class="title">0,5 não é sagrado</div>
+   <p class="lede">O <span class="cap">.predict()</span> corta em 0,5 porque alguém precisou escolher um padrão. <span class="hl">Não porque 0,5 seja certo para a sua fábrica.</span></p>
+   <ul class="rules">
+    <li class="b3">Limiar <span class="k">alto</span> → o modelo quase nunca grita → <span class="k">poucos alarmes falsos, muitas quebras passando</span>.</li>
+    <li class="b3">Limiar <span class="k">baixo</span> → o modelo grita muito → <span class="k">pega quase todas as quebras, e para prensa boa à toa</span>.</li>
+    <li class="b5">Não existe limiar certo em geral. Existe o limiar certo <span class="k">para o seu custo</span>.</li>
+   </ul>
+   <div class="frame note lime"><div class="nl">o fio da aula</div><div class="nb">Este é o ponto em que o modelo para e <b>você</b> começa. A biblioteca ajustou a curva; escolher onde cortá-la é engenharia de manutenção, não estatística.</div></div>
+  </div>
+  <div class="viz" data-viz="limiar"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow aval">etapa 4 · avaliar</div>
+ <div class="cols l">
+  <div class="viz" data-viz="matriz"></div>
+  <div><div class="title">A matriz de confusão</div>
+   <p class="lede">Não é uma métrica. É <span class="hl">a fonte de todas elas</span> — e é a única figura desta aula que você vai desenhar num guardanapo daqui a cinco anos.</p>
+   <ul class="rules">
+    <li class="b4"><span class="k">VP</span> · previu quebra, quebrou — a manutenção antecipada valeu</li>
+    <li class="bad"><span class="k">FN</span> · não previu, quebrou — a prensa parou em produção. <span class="k">R$ 6.400</span></li>
+    <li class="b5"><span class="k">FP</span> · previu quebra, não quebrou — antecipou à toa. <span class="k">R$ 800</span></li>
+    <li class="b4"><span class="k">VN</span> · não previu, não quebrou — semana tranquila</li>
+   </ul>
+   <p class="bridge">🐍 <span class="cap">confusion_matrix(y_te, previsto)</span> · a ordem da saída é <b>VN FP / FN VP</b></p>
+  </div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow aval">etapa 4 · avaliar</div>
+ <div class="flush">
+  <div class="title">83,5%. E isso é péssimo.</div>
+  <p class="lede" style="max-width:70ch">Estas são as 182 semanas de teste, no limiar padrão de 0,5. Olhe a acurácia. Depois olhe a linha de baixo.</p>
+  <div class="numgrid">
+   <div class="num"><div class="nv ok">83,5%</div><div class="nk">acurácia do modelo</div></div>
+   <div class="num"><div class="nv">83,0%</div><div class="nk">acurácia do chute burro</div></div>
+   <div class="num"><div class="nv bad">5 de 31</div><div class="nk">quebras que ele pegou</div></div>
+   <div class="num"><div class="nv bad">26</div><div class="nk">quebras que passaram</div></div>
+  </div>
+  <div class="frame note warn" style="max-width:80ch"><div class="nl">o chute burro</div><div class="nb">Um modelo que responde <b>"nunca quebra"</b> para todas as 182 semanas acerta 83,0% delas — porque 83% das semanas realmente não têm quebra. Nosso modelo, com cinco sensores e um turno, ganhou <b>meio ponto percentual</b> desse chute. E deixou <b>26 prensas quebrarem</b>.</div></div>
+  <p class="bridge">a acurácia não está errada · ela está <b>respondendo a pergunta errada</b></p>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow aval">etapa 4 · avaliar</div>
+ <div class="cols r">
+  <div><div class="title">Precisão e recall<br>olham lados opostos</div>
+   <p class="lede">As duas saem da mesma matriz. A diferença é <span class="hl">por onde você divide</span>.</p>
+   <div class="eqbox frame">
+    <div class="eq"><span class="n">1</span> precisão <span class="op">=</span> <span class="t3">VP ÷ (VP + FP)</span></div>
+    <div class="eq"><span class="n">2</span> recall <span class="op">=</span> <span class="t5">VP ÷ (VP + FN)</span></div>
+   </div>
+   <ul class="rules">
+    <li class="b3"><span class="k">Precisão</span> = quando eu grito, quantas vezes tenho razão? Manda no custo do <span class="k">alarme falso</span>.</li>
+    <li class="b5"><span class="k">Recall</span> = das quebras que houve, quantas eu peguei? Manda no custo da <span class="k">quebra</span>.</li>
+    <li class="bad">No limiar 0,5: precisão <span class="k">0,556</span>, recall <span class="k">0,161</span>. Ele quase sempre acerta quando grita — só que <span class="k">quase nunca grita</span>.</li>
+   </ul>
+   <div class="frame note lime"><div class="nl">a regra de bolso</div><div class="nb">Escolha a métrica pelo erro que dói mais. Aqui o falso negativo custa <b>8×</b> o falso positivo → a métrica da fábrica é o <b>recall</b>.</div></div>
+  </div>
+  <div class="viz" data-viz="precrec"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow aval">etapa 4 · avaliar</div>
+ <div class="flush">
+  <div class="title" style="margin-bottom:2.2vh">As outras três do plano</div>
+  <div class="itable c3">
+   <div class="h">métrica</div><div class="h">o que ela conta</div><div class="h">no nosso modelo, em 0,5</div>
+   <div class="c"><b>Especificidade</b><span class="mono">VN ÷ (VN + FP)</span></div>
+   <div class="c">Das semanas tranquilas, quantas eu deixei em paz. É o recall da classe "não quebrou".</div>
+   <div class="c"><b>0,974</b> — quase perfeita, e por um motivo triste: ele quase nunca grita.</div>
+   <div class="c"><b>F1</b><span class="mono">2·prec·rec ÷ (prec+rec)</span></div>
+   <div class="c">Um número só para precisão e recall juntos. Puxa para baixo quando um dos dois é ruim.</div>
+   <div class="c"><b>0,250</b> — denuncia o desequilíbrio que a acurácia escondeu.</div>
+   <div class="c"><b>AUC</b><span class="mono">roc_auc_score</span></div>
+   <div class="c">A única que <b>não depende do limiar</b>. Mede se o modelo sabe ordenar risco.</div>
+   <div class="c"><b>0,831</b> — o modelo sabe ordenar. Quem estava errando era o corte.</div>
+  </div>
+  <div class="frame note ok" style="max-width:86ch"><div class="nl">repare na contradição</div><div class="nb">Especificidade <b>0,974</b> e recall <b>0,161</b> no mesmo modelo, na mesma tabela. Um número quase perfeito e um número quase inútil, medindo o mesmo classificador. <b>Nenhuma métrica sozinha descreve um modelo.</b></div></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow aval">etapa 4 · avaliar</div>
+ <div class="cols l">
+  <div class="viz" data-viz="roc"></div>
+  <div><div class="title">A curva ROC</div>
+   <p class="lede">Cada ponto da curva é <span class="hl">um limiar diferente</span>. Ela mostra, de uma vez, todos os acordos possíveis entre pegar quebras e dar alarme falso.</p>
+   <ul class="rules">
+    <li class="b4">Eixo vertical: <span class="k">recall</span> — quanto das quebras você pega.</li>
+    <li class="b5">Eixo horizontal: <span class="k">1 − especificidade</span> — quanto de alarme falso você aceita.</li>
+    <li class="b2">A diagonal é o <span class="k">cara ou coroa</span>. Quanto mais a curva sobe pela esquerda, melhor.</li>
+    <li class="b3">A <span class="k">AUC = 0,831</span> é a área embaixo dela: a chance de o modelo dar nota maior para uma semana que quebrou do que para uma que não quebrou.</li>
+   </ul>
+   <div class="frame note"><div class="nl">por que ela importa aqui</div><div class="nb">A AUC 0,831 diz que <b>o modelo é bom</b>, mesmo com recall 0,161. Os dois números são verdadeiros: um avalia o modelo, o outro avalia <b>a decisão que você tomou com ele</b>.</div></div>
+  </div>
+ </div></section>
+
+<section class="slide ex">
+ <div class="eyebrow ex">exercício · prática guiada</div>
+ <div class="flush">
+  <div class="exhead"><span class="stars">★ ★ ★ ★ ☆</span><span class="exlabel">etapa 4 · avaliar</span></div>
+  <p class="prompt">Um colega baixou o limiar e trouxe esta matriz, das mesmas 182 semanas:<br><span class="data">VP = 26 · FN = 5 · FP = 41 · VN = 110</span><br>Calcule <span class="hl">recall</span>, <span class="hl">precisão</span> e <span class="hl">acurácia</span>. A acurácia melhorou?</p>
+  <div class="reveal">pressione <b>R</b> para revelar a resposta</div>
+  <div class="answer frame"><div class="al">resposta</div><div class="ab">recall = 26 ÷ 31 = <b>0,839</b> (era 0,161) · precisão = 26 ÷ 67 = <b>0,388</b> (era 0,556) · acurácia = 136 ÷ 182 = <b>0,747</b> (era 0,835).<br><br>A acurácia <b>piorou nove pontos</b> — e este modelo é muito melhor para a fábrica: ele deixou de perder 21 quebras. Pagou por isso com 37 alarmes falsos a mais. <b>21 × R$ 6.400 economizados contra 37 × R$ 800 gastos.</b> A conta fecha, e a acurácia não sabia disso.</div></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow aval">etapa 4 · avaliar</div>
+ <div class="cols r">
+  <div><div class="title">A métrica varia</div>
+   <p class="lede">Um único número de teste é <span class="hl">um sorteio</span>. O k-fold repete o sorteio cinco vezes e mostra a faixa.</p>
+   <div class="eqbox frame"><div class="eq" style="font-family:var(--mono);font-size:clamp(12px,1.4vw,17px)">cross_val_score(modelo, X, y,<br>&nbsp;&nbsp;cv=5, scoring='roc_auc')</div></div>
+   <ul class="rules">
+    <li class="b4">As cinco dobras: <span class="k">0,811 · 0,772 · 0,898 · 0,939 · 0,793</span></li>
+    <li class="b4">Média <span class="k">0,843</span>, desvio <span class="k">0,065</span></li>
+    <li class="bad">Entre a pior e a melhor dobra há <span class="k">17 pontos de AUC</span>. Se você tivesse rodado só uma vez, poderia ter levado qualquer uma delas para a reunião.</li>
+   </ul>
+   <div class="frame note warn"><div class="nl">o que dizer ao gestor</div><div class="nb">Nunca "o modelo tem AUC de 0,94". Sempre <b>"em torno de 0,84, variando de 0,77 a 0,94 conforme a amostra"</b>. A segunda frase é a que sobrevive ao segundo mês de operação.</div></div>
+  </div>
+  <div class="viz" data-viz="kfold"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow deci">etapa 5 · decidir</div>
+ <div class="cols l">
+  <div class="viz" data-viz="custo"></div>
+  <div><div class="title">Traduza o erro<br>para dinheiro</div>
+   <p class="lede">Enquanto o erro for adimensional, <span class="hl">todo limiar parece defensável</span>. Em reais, um deles ganha.</p>
+   <div class="eqbox frame"><div class="eq" style="font-size:clamp(15px,1.8vw,23px)">custo <span class="op">=</span> <span class="t5">800 × FP</span> <span class="op">+</span> <span class="t3">6.400 × FN</span></div></div>
+   <ul class="rules">
+    <li class="bad">limiar <span class="k">0,50</span> → 4 FP e 26 FN → <span class="k">R$ 169.600</span></li>
+    <li class="b5">limiar <span class="k">0,20</span> → 31 FP e 8 FN → <span class="k">R$ 76.000</span></li>
+    <li class="b4">limiar <span class="k">0,15</span> → 41 FP e 5 FN → <span class="k">R$ 64.800</span></li>
+   </ul>
+   <div class="frame note ok"><div class="nl">R$ 104.800 por trimestre</div><div class="nb">É a diferença entre o padrão do <span class="cap">.predict()</span> e um limiar escolhido. <b>Não mudamos o modelo. Mudamos uma linha.</b></div></div>
+  </div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow deci">etapa 5 · decidir</div>
+ <div class="cols r">
+  <div><div class="title">Comparar modelos<br>(e o sensor inútil)</div>
+   <p class="lede">Cinco sensores estavam disponíveis. Ter o sensor <span class="hl">não significa que ele serve</span>.</p>
+   <ul class="rules">
+    <li class="bad">só <span class="cap">umidade_galpao_pct</span> → AUC <span class="k">0,490</span>. Pior que cara ou coroa.</li>
+    <li class="b2">só vibração → <span class="k">0,704</span></li>
+    <li class="b4">os 4 sensores úteis → <span class="k">0,837</span></li>
+    <li class="bad">os 4 úteis <span class="k">+ a umidade</span> → <span class="k">0,831</span>. Acrescentar lixo <span class="k">piorou</span>.</li>
+   </ul>
+   <div class="frame note warn"><div class="nl">o que isso ensina</div><div class="nb">Variável inútil não é neutra: ela ocupa graus de liberdade e faz o modelo perseguir ruído. <b>Escolher o que fica de fora é trabalho seu</b> — o <span class="cap">.fit()</span> aceita qualquer coluna que você mandar.</div></div>
+  </div>
+  <div class="viz" data-viz="placar"></div>
+ </div></section>
+
+<section class="slide ex">
+ <div class="eyebrow ex">exercício · prática guiada</div>
+ <div class="flush">
+  <div class="exhead"><span class="stars">★ ★ ★ ★ ★</span><span class="exlabel">etapa 5 · decidir</span></div>
+  <p class="prompt">Dois modelos para a mesma linha de estamparia:<br><span class="data">Modelo A — AUC 0,93 · recall 0,22 · usa a coluna "custo da manutenção corretiva da semana"</span><br><span class="data">Modelo B — AUC 0,83 · recall 0,84 · usa só sensores lidos na segunda-feira</span><br>Qual você implanta? Justifique em duas frases para um gestor.</p>
+  <div class="reveal">pressione <b>R</b> para revelar a resposta</div>
+  <div class="answer frame"><div class="al">resposta</div><div class="ab"><b>B</b>, e o A nem deveria ter chegado à reunião. A coluna "custo da manutenção corretiva da semana" <b>só existe depois que a quebra aconteceu</b> — na segunda-feira, quando a decisão é tomada, ela é zero para todo mundo. O A tem AUC 0,93 porque está lendo a resposta no gabarito; em produção ele vale <b>nada</b>.<br><br>Isso se chama <b>vazamento</b>. E repare: a maior métrica era a do modelo que não se implanta. <b>Antes de comparar números, pergunte se cada coluna já existia no momento da decisão.</b></div></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow deci">etapa 5 · decidir</div>
+ <div class="cols r">
+  <div><div class="title">Uma página<br>para o gestor</div>
+   <p class="lede">Ele tem cinco minutos e não sabe o que é AUC. <span class="hl">Nenhuma métrica adimensional entra nesta página.</span></p>
+   <ul class="rules">
+    <li class="b5"><span class="k">A pergunta:</span> quais prensas parar na segunda-feira.</li>
+    <li class="b5"><span class="k">O que muda:</span> de 31 quebras por trimestre, o modelo antecipa 26.</li>
+    <li class="b5"><span class="k">O preço:</span> 41 paradas antecipadas que não eram necessárias.</li>
+    <li class="b4"><span class="k">O saldo:</span> R$ 64.800 contra R$ 198.400 do jeito atual.</li>
+    <li class="bad"><span class="k">Os limites:</span> não vale para a prensa nova (sem histórico); revalidar em 3 meses.</li>
+   </ul>
+   <div class="frame note lime"><div class="nl">a regra</div><div class="nb">Toda linha do relatório está em <b>quebras, paradas ou reais</b>. A AUC fica no anexo — ela serve para você comparar modelos, não para o gestor decidir.</div></div>
+  </div>
+  <div class="viz" data-viz="relatorio"></div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow deci">etapa 5 · decidir</div>
+ <div class="cols l">
+  <div class="viz" data-viz="drift"></div>
+  <div><div class="title">O modelo envelhece</div>
+   <p class="lede">Implantar não é terminar. A fábrica muda, e o modelo <span class="hl">continua respondendo com a fábrica de antes</span>.</p>
+   <ul class="rules">
+    <li class="b2"><span class="k">Data drift:</span> trocaram o mancal e a vibração média caiu de 4,8 para 3,1. Os dados mudaram; a relação, não.</li>
+    <li class="b1"><span class="k">Concept drift:</span> mudou o turno da noite para dois operadores e a noite parou de ser mais arriscada. A <span class="k">relação</span> mudou.</li>
+    <li class="b4"><span class="k">Revalidação:</span> a cada 3 meses, refaça a matriz de confusão com os dados novos.</li>
+    <li class="b5"><span class="k">O indicador que se acompanha</span> não é a AUC: é <span class="k">quantas quebras passaram</span> desde a implantação.</li>
+   </ul>
+   <p class="bridge">🐍 na prática: um script que roda toda segunda e compara a taxa de FN do mês com a do treino</p>
+  </div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow">a peça para consultar daqui a seis meses</div>
+ <div class="flush">
+  <div class="title" style="margin-bottom:2vh">Sintoma → causa → o que fazer</div>
+  <div class="itable c4">
+   <div class="h">sintoma</div><div class="h">causa provável</div><div class="h">onde olhar</div><div class="h">o que fazer</div>
+
+   <div class="c"><b>Acurácia alta, recall baixo</b></div>
+   <div class="c">Base desbalanceada + limiar padrão</div>
+   <div class="c"><span class="mono">confusion_matrix</span><br>e a taxa da classe rara</div>
+   <div class="c">Baixe o limiar e refaça a conta em reais</div>
+
+   <div class="c"><b>ConvergenceWarning</b></div>
+   <div class="c">Escalas muito diferentes entre colunas</div>
+   <div class="c"><span class="mono">X.describe()</span><br>linhas min e max</div>
+   <div class="c">StandardScaler antes do fit</div>
+
+   <div class="c"><b>Coeficiente com sinal impossível</b></div>
+   <div class="c">Variável confundidora fora do modelo</div>
+   <div class="c">Matriz de correlação entre as colunas</div>
+   <div class="c">Vá ao chão de fábrica antes de apagar a variável</div>
+
+   <div class="c"><b>AUC quase 1,0</b></div>
+   <div class="c">Vazamento: coluna que só existe depois do fato</div>
+   <div class="c">Cada coluna, uma por uma: ela existia na segunda-feira?</div>
+   <div class="c">Remova a coluna e rode de novo</div>
+
+   <div class="c"><b>Métrica ótima no teste, ruim em produção</b></div>
+   <div class="c">Drift, ou split não estratificado</div>
+   <div class="c">Taxa da classe rara no treino × no teste × no mês atual</div>
+   <div class="c">stratify=y · revalidação trimestral</div>
+
+   <div class="c"><b>Precisão despenca ao baixar o limiar</b></div>
+   <div class="c">Comportamento normal, não é defeito</div>
+   <div class="c">A tabela de limiares com a coluna de custo</div>
+   <div class="c">Decida pelo custo, não pela métrica</div>
+  </div>
+ </div></section>
+
+<section class="slide">
+ <div class="eyebrow">o combinado</div>
+ <div class="cols">
+  <div><div class="title" style="font-size:clamp(22px,3vw,38px)">O que a ferramenta faz</div>
+   <ul class="rules" style="margin-top:2vh">
+    <li class="b2">Acha os coeficientes que melhor separam as duas classes</li>
+    <li class="b2">Aplica a curva em S e devolve uma probabilidade</li>
+    <li class="b2">Calcula todas as métricas em uma linha cada</li>
+    <li class="b2">Corta em 0,5 se você não disser nada</li>
+    <li class="b2">Aceita qualquer coluna que você mandar, inclusive as inúteis</li>
+   </ul>
+  </div>
+  <div><div class="title" style="font-size:clamp(22px,3vw,38px)">O que <span class="spectral-text">você</span> faz</div>
+   <ul class="rules" style="margin-top:2vh">
+    <li class="b5">Define o que conta como "falha" — e assume essa escolha</li>
+    <li class="b5">Decide quais sensores entram e quais ficam de fora</li>
+    <li class="b5">Escolhe a métrica pelo erro que dói mais</li>
+    <li class="b5">Escolhe o limiar pelo custo em reais</li>
+    <li class="b5">Lê o sinal esquisito e vai perguntar na fábrica</li>
+    <li class="b5">Diz se implanta — ou se não implanta</li>
+   </ul>
+  </div>
+ </div>
+ <p class="lede" style="max-width:80ch;margin-top:1vh">Trocar <span class="cap">LogisticRegression</span> por <span class="cap">RandomForestClassifier</span> muda a coluna da esquerda inteira. <span class="hl">A coluna da direita continua igual.</span> É por isso que ela é a aula.</p>
+</section>
+
+<section class="slide">
+ <div class="eyebrow">honestidade final</div>
+ <div class="flush">
+  <div class="title" style="margin-bottom:2.4vh">Isto foi só o começo</div>
+  <div class="boxes">
+   <div class="box k1"><div class="n">fica para uma pós</div><div class="d" style="line-height:1.7">
+    Máxima verossimilhança e o gradiente que acha os coeficientes<br>
+    Teste de Wald, p-valor e intervalo de confiança<br>
+    Regularização L1/L2 — o scikit-learn já aplica L2 sem te avisar<br>
+    Calibração de probabilidade<br>
+    Regressão multinomial e ordinal</div></div>
+   <div class="box k3"><div class="n">vem nas próximas unidades</div><div class="d" style="line-height:1.7">
+    Árvore de decisão e Random Forest<br>
+    Naïve Bayes<br>
+    K-means e agrupamento<br>
+    Validação cruzada aprofundada e ajuste de hiperparâmetros<br>
+    Bases desbalanceadas: SMOTE e class_weight</div></div>
+   <div class="box k5"><div class="n">só aparece em produção</div><div class="d" style="line-height:1.7">
+    O sensor que para de enviar às 3h da manhã<br>
+    O operador que aprende a burlar o alerta<br>
+    O modelo que envelhece devagar demais para alguém notar<br>
+    A reunião em que pedem "só mais um pontinho de acurácia"</div></div>
+  </div>
+  <div class="frame note ok" style="max-width:92ch;margin-top:2.4vh"><div class="nl">a ressalva que fecha a aula</div><div class="nb">Você vai trocar de algoritmo muitas vezes. Árvore, floresta, rede neural — cada um com sua biblioteca e sua chamada. <b>O método não muda:</b> preparar, treinar, traduzir, avaliar, decidir. E o julgamento — qual erro dói mais, onde cortar, se implanta — <b>continua sendo seu</b>. Nenhuma versão nova de biblioteca vai tirar isso de você.</div></div>
+ </div></section>
+
+</div>
+<div class="brand">SENAI · REGRESSÃO LOGÍSTICA</div>
+<div class="hint">← → navegar · <b>R</b> resposta</div>
+<div class="counter"><b id="cur">01</b> / <span id="tot">00</span></div>
+<div class="progress" id="prog"></div>
+<script>
+/* ============ paleta e utilitários de desenho ============ */
+const V1='#9168D6',V2='#4F86C6',V3='#2FB89A',V4='#56C877',V5='#B5DC4A',V6='#F4ED45';
+const SP=[V1,V2,V3,V4,V5,V6], GA='#93A4B7', FA='#5E7186', INK='#E8EEF4';
+const MONO='JetBrains Mono', SERIF='Lora';
+
+function T(x,y,t,c=GA,s=12,a='middle',f=MONO,w='400'){
+  return `<text x="${x}" y="${y}" fill="${c}" font-size="${s}" font-family="${f}" font-weight="${w}" text-anchor="${a}">${t}</text>`}
+function P(x1,y1,x2,y2,c,cls='',w=2){
+  return `<path ${cls?`class="${cls}" pathLength="1"`:''} d="M ${x1} ${y1} L ${x2} ${y2}" stroke="${c}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`}
+function seta(x1,y1,x2,y2,c,cls=''){
+  const a=Math.atan2(y2-y1,x2-x1),L=9;
+  return P(x1,y1,x2,y2,c,cls)+`<path class="${cls?'fade':''}" d="M ${x2} ${y2} L ${(x2-L*Math.cos(a-0.4)).toFixed(1)} ${(y2-L*Math.sin(a-0.4)).toFixed(1)} L ${(x2-L*Math.cos(a+0.4)).toFixed(1)} ${(y2-L*Math.sin(a+0.4)).toFixed(1)} Z" fill="${c}"/>`}
+function cx(x,y,w,h,t,c,cls='',i=0,fs=13){
+  return `<g class="${cls}" style="--i:${i}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7" fill="${c}22" stroke="${c}" stroke-width="1.7"/>${T(x+w/2,y+h/2+4.5,t,c,fs)}</g>`}
+function eixos(x0,y0,w,h){
+  return P(x0,y0,x0,y0-h,'rgba(143,164,183,.35)','',1.4)+P(x0,y0,x0+w,y0,'rgba(143,164,183,.35)','',1.4)}
+const sig=z=>1/(1+Math.exp(-z));
+const BR=(n,d)=>n.toFixed(d).replace('.',',');
+
+/* ============ 1 · capa: do sensor à decisão ============ */
+function hero(){const W=520,H=400;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const et=[['vibração',V1],['temperatura',V1],['horas',V1],['turno',V1]];
+ et.forEach((e,i)=>{s+=cx(20,58+i*46,120,34,e[0],e[1],'pop',i,12)});
+ s+=seta(146,150,196,150,V2,'draw');
+ s+=cx(196,128,86,44,'z',V2,'pop',4,20);
+ s+=T(239,190,'a + b·sensor',FA,10.5);
+ s+=seta(288,150,330,150,V3,'draw d2');
+ // curva em S
+ const x0=336,y0=232,w=150,h=118;
+ s+=eixos(x0,y0,w,h);
+ let dd='';for(let i=0;i<=60;i++){const z=-6+i*0.2,X=x0+(i/60)*w,Y=y0-sig(z)*h;dd+=(i?' L ':'M ')+X.toFixed(1)+' '+Y.toFixed(1)}
+ s+=`<path class="draw d2" pathLength="1" d="${dd}" stroke="url(#gh)" stroke-width="2.6" fill="none" filter="url(#g1)"/>`;
+ s+=T(x0+w/2,y0+20,'curva em S',V3,11);
+ s+=T(x0-14,y0-h+4,'1',FA,10);s+=T(x0-14,y0+4,'0',FA,10);
+ // limiar
+ s+=`<g class="fade2">`+P(x0,y0-0.20*h,x0+w,y0-0.20*h,V5,'',1.6)+T(x0+w+4,y0-0.20*h+4,'limiar',V5,10,'start')+`</g>`;
+ s+=seta(260,268,260,300,V5,'draw d3');
+ s+=`<g class="fade3">`+cx(96,306,150,50,'ANTECIPAR',V4,'',0,15)+cx(276,306,150,50,'DEIXAR RODAR',GA,'',0,15)+`</g>`;
+ s+=T(W/2,384,'a mesma prensa, duas decisões diferentes',FA,11);
+ return s+`</svg>`}
+
+/* ============ 2 · a balança dos custos ============ */
+function balanca(){const W=520,H=380;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ s+=P(260,80,260,300,'rgba(143,164,183,.3)','',2);
+ s+=`<path class="draw" pathLength="1" d="M 100 132 L 420 96" stroke="url(#gh)" stroke-width="3" fill="none"/>`;
+ s+=`<circle cx="260" cy="114" r="8" fill="${V3}"/>`;
+ // prato leve (FP)
+ s+=`<g class="pop" style="--i:1">`+P(100,132,100,176,GA,'',1.4)
+   +`<rect x="34" y="176" width="132" height="62" rx="8" fill="rgba(181,220,74,.10)" stroke="${V5}" stroke-width="1.8"/>`
+   +T(100,200,'FALSO POSITIVO',V5,11)+T(100,222,'R$ 800',V5,20,'middle',SERIF,'600')+`</g>`;
+ // prato pesado (FN)
+ s+=`<g class="pop" style="--i:3">`+P(420,96,420,206,GA,'',1.4)
+   +`<rect x="342" y="206" width="150" height="86" rx="8" fill="rgba(244,237,69,.10)" stroke="${V6}" stroke-width="2.2"/>`
+   +T(417,232,'FALSO NEGATIVO',V6,11)+T(417,262,'R$ 6.400',V6,26,'middle',SERIF,'600')+`</g>`;
+ s+=`<g class="fade2">`+T(260,330,'8 ×',V6,30,'middle',SERIF,'600')+T(260,354,'um erro pesa oito vezes o outro',FA,11.5)+`</g>`;
+ s+=P(180,300,340,300,'rgba(143,164,183,.18)','',1);
+ return s+`</svg>`}
+
+/* ============ 3 · a base suja ============ */
+function sujeira(){const W=520,H=390;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const cols=['vibração','temperatura','horas','turno'],cw=112,ch=25,x0=30,y0=54;
+ cols.forEach((c,i)=>{s+=`<rect x="${x0+i*cw}" y="${y0}" width="${cw-4}" height="26" rx="4" fill="rgba(20,28,38,.8)"/>`+T(x0+i*cw+(cw-4)/2,y0+17,c,GA,10.5)});
+ const linhas=[['0,00','—','1.413','manhã',0],['5,01','66,4','318','tarde',-1],['4,59','—','607','tarde',1],['41,7','72,1','634','manhã',2],['5,83','75,6','592','noite',-1],['—','—','862','tarde',1],['5,73','74,5','664','manhã',-1]];
+ linhas.forEach((L,r)=>{const y=y0+34+r*(ch+5);
+  L.slice(0,4).forEach((v,c)=>{
+    const ruim=(r===0&&c===0)||(r===3&&c===0), falta=(v==='—');
+    const cor=ruim?V6:(falta?V1:INK);
+    s+=`<g class="pop" style="--i:${r*0.6+c*0.15}"><rect x="${x0+c*cw}" y="${y}" width="${cw-4}" height="${ch}" rx="4" fill="${ruim?'rgba(244,237,69,.12)':(falta?'rgba(145,104,214,.12)':'rgba(255,255,255,.02)')}" stroke="${ruim||falta?cor:'rgba(143,164,183,.14)'}" stroke-width="${ruim||falta?1.6:1}"/>`+T(x0+c*cw+(cw-4)/2,y+17,v,cor,11.5)+`</g>`})});
+ s+=`<g class="fade2">`+T(x0,y0+34+7*(ch+5)+26,'■ sensor offline  · 52 linhas',V1,11.5,'start')
+   +T(x0,y0+34+7*(ch+5)+46,'■ leitura impossível · 23 linhas',V6,11.5,'start')
+   +T(x0,y0+34+7*(ch+5)+70,'800  →  725 semanas',V4,17,'start',SERIF,'600')+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 4 · réguas incompatíveis ============ */
+function reguas(){const W=520,H=420;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ s+=T(30,26,'COMO OS DADOS CHEGAM',GA,11.5,'start',MONO,'600');
+ const dados=[['vibração (mm/s)','2,1','7,8',0.045,V3],['horas desde manutenção','167','1.889',1.0,V5]];
+ dados.forEach((d,i)=>{const y=68+i*96,len=36+d[3]*424;
+  s+=T(30,y-12,d[0],GA,12,'start');
+  s+=`<g class="growx" style="--i:${i}"><rect x="30" y="${y}" width="${len}" height="24" rx="5" fill="${d[4]}28" stroke="${d[4]}" stroke-width="1.8"/></g>`;
+  for(let k=0;k<=10;k++){const x=30+k*len/10;s+=P(x,y+24,x,y+(k%5===0?33:29),d[4],'',1)}
+  s+=`<g class="fade2">`+T(30,y+46,d[1],d[4],11.5,'start')+T(30+len,y+46,d[2],d[4],11.5,'end')+`</g>`});
+ s+=`<g class="fade2">`+T(30,268,'somar as duas na mesma conta é somar mm com km',V6,12,'start')+`</g>`;
+ s+=P(30,286,490,286,'rgba(143,164,183,.22)','',1);
+ s+=`<g class="fade3">`+T(30,312,'DEPOIS DO StandardScaler',GA,11.5,'start',MONO,'600');
+ [[V3,'vibração'],[V5,'horas']].forEach((d,i)=>{const y=332+i*40;
+   s+=`<rect x="180" y="${y}" width="170" height="20" rx="5" fill="${d[0]}28" stroke="${d[0]}" stroke-width="1.6"/>`
+     +T(172,y+15,d[1],GA,11.5,'end')});
+ s+=P(265,326,265,414,INK,'',1.4)+T(265,410,'0',FA,10.5)
+   +T(400,352,'mesma régua',INK,12,'start')+T(400,370,'agora dá para comparar',FA,11,'start')+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 5 · split estratificado ============ */
+function estratifica(){const W=520,H=370;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ function pote(x,y,w,h,tot,q,rot,sub,cor,off){
+   let g=`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="rgba(20,28,38,.5)" stroke="${cor}" stroke-width="1.8"/>`;
+   g+=T(x+w/2,y-14,rot,cor,13,'middle',MONO,'600');
+   let seed=off;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280};
+   for(let i=0;i<tot;i++){const cxx=x+12+rnd()*(w-24),cyy=y+12+rnd()*(h-24);
+     g+=`<circle class="pop" style="--i:${(i*0.045).toFixed(2)}" cx="${cxx.toFixed(0)}" cy="${cyy.toFixed(0)}" r="${i<q?4.6:3}" fill="${i<q?V6:'rgba(143,164,183,.42)'}"/>`}
+   g+=T(x+w/2,y+h+22,sub,FA,11);
+   return g}
+ s+=pote(30,70,190,150,58,10,'TREINO','543 semanas · 91 quebras',V1,7);
+ s+=pote(300,70,190,150,45,8,'TESTE','182 semanas · 31 quebras',V3,19);
+ s+=`<g class="fade2">`+T(W/2,278,'16,8% de quebras dos DOIS lados',V4,15,'middle',SERIF,'600')
+   +T(W/2,304,'stratify=y',V6,13)+T(W/2,332,'sem isso, o teste pode sair quase sem quebra nenhuma',FA,11.5)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 6 · a reta furando 0 e 1 ============ */
+function retavss(){const W=520,H=380;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=60,y0=290,w=400,h=210;
+ s+=eixos(x0,y0,w,h);
+ s+=T(x0-16,y0-h+5,'1',FA,11);s+=T(x0-16,y0+5,'0',FA,11);
+ s+=T(x0+w/2,y0+34,'vibração (mm/s)',FA,11.5);
+ // pontos 0 e 1
+ let seed=3;const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280};
+ for(let i=0;i<40;i++){const t=rnd();const X=x0+20+t*(w-60);const um=rnd()<(0.06+t*0.75);
+   s+=`<circle class="pop" style="--i:${(i*0.05).toFixed(2)}" cx="${X.toFixed(0)}" cy="${(um?y0-h:y0).toFixed(0)}" r="4.2" fill="${um?V6:V2}" opacity=".65"/>`}
+ // reta que fura
+ s+=`<g class="fade2"><path d="M ${x0} ${y0+42} L ${x0+w} ${y0-h-42}" stroke="${V6}" stroke-width="2.4" stroke-dasharray="7 6" fill="none"/></g>`;
+ s+=`<g class="fade"><path d="M ${x0} ${y0} L ${x0+w+10} ${y0}" stroke="rgba(143,164,183,.35)" stroke-width="1" stroke-dasharray="3 4" fill="none"/>`
+   +`<path d="M ${x0} ${y0-h} L ${x0+w+10} ${y0-h}" stroke="rgba(143,164,183,.35)" stroke-width="1" stroke-dasharray="3 4" fill="none"/></g>`;
+ // curva em S
+ let dd='';for(let i=0;i<=60;i++){const z=-5.5+i*(11/60),X=x0+(i/60)*w,Y=y0-sig(z)*h;dd+=(i?' L ':'M ')+X.toFixed(1)+' '+Y.toFixed(1)}
+ s+=`<path class="draw d3" pathLength="1" d="${dd}" stroke="url(#gh)" stroke-width="3" fill="none" filter="url(#g1)"/>`;
+ s+=`<g class="fade2">`+T(x0+8,y0+62,'p = −0,2 · impossível',V6,11.5,'start')
+   +T(x0+w+8,y0-h-46,'p = 1,4 · impossível',V6,11.5,'end')+`</g>`;
+ s+=`<g class="fade3">`+T(x0+w,y0-34,'a curva nunca sai de 0 a 1',V3,11.5,'end')+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 7 · a régua da probabilidade × a do logit ============ */
+function reguaodds(){const W=520,H=360;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const ps=[0.05,0.2,0.5,0.8,0.95];
+ // regua p
+ s+=T(30,60,'probabilidade — trava nas pontas',GA,12,'start');
+ s+=`<rect x="30" y="74" width="440" height="28" rx="6" fill="rgba(20,28,38,.55)" stroke="rgba(143,164,183,.28)"/>`;
+ ps.forEach((p,i)=>{const x=30+p*440;
+  s+=`<g class="pop" style="--i:${i}"><circle cx="${x.toFixed(0)}" cy="88" r="6.5" fill="${SP[i+1]}"/>${T(x,70,BR(p,2),SP[i+1],11)}</g>`});
+ s+=T(30,122,'0',FA,11,'start')+T(470,122,'1',FA,11,'end');
+ // setas
+ ps.forEach((p,i)=>{const x1=30+p*440,z=Math.log(p/(1-p)),x2=250+z*68;
+   s+=seta(x1,98,x2,196,'rgba(143,164,183,.35)','draw'+(i%2?' d2':''))});
+ // regua logit
+ s+=T(30,186,'logit — a régua reta',GA,12,'start');
+ s+=`<rect x="30" y="200" width="440" height="28" rx="6" fill="rgba(47,184,154,.08)" stroke="${V3}" stroke-width="1.6"/>`;
+ ps.forEach((p,i)=>{const z=Math.log(p/(1-p)),x=250+z*68;
+  s+=`<g class="fade2"><circle cx="${x.toFixed(0)}" cy="214" r="6.5" fill="${SP[i+1]}"/>${T(x,248,BR(z,2),SP[i+1],11.5)}</g>`});
+ s+=`<g class="fade2">`+T(22,218,'−∞',FA,13,'end')+T(478,218,'+∞',FA,13,'start')+`</g>`;
+ s+=`<g class="fade3">`+P(250,196,250,232,V6,'',1.6)+T(250,290,'0,50 fica no ZERO',V6,13)
+   +T(W/2,316,'−1,386 e +1,386 são simétricos aqui embaixo.',INK,12)
+   +T(W/2,336,'Lá em cima, 0,20 e 0,80 não pareciam.',FA,12)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 8 · a curva em S com marcações ============ */
+function curvas(){const W=520,H=390;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=64,y0=310,w=396,h=232;
+ s+=eixos(x0,y0,w,h);
+ [0,0.5,1].forEach(v=>{s+=P(x0,y0-v*h,x0+w,y0-v*h,'rgba(143,164,183,.12)','',1)+T(x0-18,y0-v*h+4,BR(v,1),FA,11)});
+ let dd='';for(let i=0;i<=80;i++){const z=-6+i*(12/80),X=x0+(i/80)*w,Y=y0-sig(z)*h;dd+=(i?' L ':'M ')+X.toFixed(1)+' '+Y.toFixed(1)}
+ s+=`<path class="draw" pathLength="1" d="${dd}" stroke="url(#gh)" stroke-width="3.2" fill="none" filter="url(#g1)"/>`;
+ const zx=z=>x0+((z+6)/12)*w;
+ s+=`<g class="fade2">`+P(zx(0),y0,zx(0),y0-0.5*h,V6,'',1.6)+`<circle cx="${zx(0)}" cy="${y0-0.5*h}" r="7" fill="${V6}"/>`
+   +T(zx(0),y0+22,'z = 0',V6,12)+T(zx(0)+8,y0-0.5*h-14,'p = 0,50',V6,12,'start')+`</g>`;
+ s+=`<g class="fade3">`+T(zx(4.8),y0-0.985*h-14,'achata',V4,11)+T(zx(-4.8),y0+22,'achata',V4,11)
+   +T(x0+w/2,y0+44,'z (a soma dos sensores)',FA,11.5)+`</g>`;
+ s+=T(30,y0-h-16,'probabilidade',GA,11.5,'start');
+ return s+`</svg>`}
+
+/* ============ 9 · a caixa preta que você comanda ============ */
+function caixapreta(){const W=500,H=360;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ s+=`<rect x="130" y="120" width="240" height="120" rx="12" fill="rgba(79,134,198,.10)" stroke="${V2}" stroke-width="2.2"/>`;
+ s+=T(250,166,'.fit()',V2,26,'middle',MONO,'600');
+ s+=T(250,196,'procura os coeficientes',GA,11.5);
+ s+=T(250,216,'que melhor separam as classes',GA,11.5);
+ ['X_tr','y_tr'].forEach((t,i)=>{s+=cx(20,132+i*54,90,38,t,V1,'pop',i,13);s+=seta(114,151+i*54,126,171,V1,'draw')});
+ s+=seta(374,180,420,180,V3,'draw d2');
+ s+=`<g class="fade2">`+cx(392,124,96,44,'coef_',V3,'',0,14)+cx(392,190,96,44,'intercept_',V3,'',0,11)+`</g>`;
+ s+=`<g class="fade3">`+T(250,286,'você escolhe o que entra e o que fazer com o que sai',V5,12.5)
+   +T(250,310,'a biblioteca faz o meio',FA,11.5)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 10 · histograma de probabilidades ============ */
+const H0=[66,28,16,10,8,8,2,3,3,3,1,1,1,0,0,1], H1=[2,1,2,3,5,4,0,6,1,2,1,1,2,0,1,0];
+function histo(){const W=520,H=380;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=54,y0=296,w=406,h=214,n=H0.length,bw=w/n;
+ s+=eixos(x0,y0,w,h);
+ const mx=Math.max(...H0);
+ for(let i=0;i<n;i++){
+  const h0=H0[i]/mx*h, h1=H1[i]/mx*h;
+  if(H0[i])s+=`<rect class="grow" x="${(x0+i*bw+1).toFixed(1)}" y="${(y0-h0).toFixed(1)}" width="${(bw/2-1.5).toFixed(1)}" height="${h0.toFixed(1)}" fill="${V2}" opacity=".72"/>`;
+  if(H1[i])s+=`<rect class="grow" x="${(x0+i*bw+bw/2).toFixed(1)}" y="${(y0-h1).toFixed(1)}" width="${(bw/2-1.5).toFixed(1)}" height="${h1.toFixed(1)}" fill="${V6}" opacity=".85"/>`}
+ s+=`<g class="fade2">`+P(x0+0.5/0.8*w,y0+6,x0+0.5/0.8*w,y0-h+10,V5,'',1.8)+T(x0+0.5/0.8*w,y0-h+2,'limiar 0,50',V5,11)
+   +P(x0+0.15/0.8*w,y0+6,x0+0.15/0.8*w,y0-h+34,V4,'',1.8)+T(x0+0.15/0.8*w,y0-h+26,'limiar 0,15',V4,11)+`</g>`;
+ s+=T(x0,y0+22,'0,0',FA,11)+T(x0+w,y0+22,'0,8',FA,11,'end')+T(x0+w/2,y0+44,'probabilidade prevista',FA,11.5);
+ s+=`<g class="fade">`+`<rect x="${x0+w-140}" y="${y0-84}" width="12" height="12" fill="${V2}" opacity=".72"/>`+T(x0+w-122,y0-73,'não quebrou',GA,11,'start')
+   +`<rect x="${x0+w-140}" y="${y0-62}" width="12" height="12" fill="${V6}" opacity=".85"/>`+T(x0+w-122,y0-51,'quebrou',GA,11,'start')+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 11 · exp(coef) em barras ============ */
+function expcoef(){const W=500,H=360;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const d=[['vibração +1 mm/s',2.405,V3],['turno noite',2.174,V4],['+1 troca de ferramenta',1.217,V5],['+100 h sem revisão',0.840,V6]];
+ const x0=190,esc=104;
+ s+=P(x0,58,x0,300,'rgba(143,164,183,.4)','',1.6)+T(x0,44,'1,0',GA,11)+T(x0,326,'neutro',FA,10.5);
+ d.forEach((r,i)=>{const y=76+i*56,len=(r[1]-1)*esc;
+  s+=T(x0-12,y+21,r[0],GA,12,'end');
+  if(len>=0)s+=`<g class="growx" style="--i:${i}"><rect x="${x0}" y="${y}" width="${len.toFixed(1)}" height="30" rx="5" fill="${r[2]}33" stroke="${r[2]}" stroke-width="1.7"/></g>`;
+  else s+=`<g class="growx" style="--i:${i}"><rect x="${(x0+len).toFixed(1)}" y="${y}" width="${(-len).toFixed(1)}" height="30" rx="5" fill="${r[2]}33" stroke="${r[2]}" stroke-width="1.7"/></g>`;
+  s+=`<g class="fade2">`+T(x0+(len>=0?len+10:len-10),y+21,BR(r[1],2)+'×',r[2],14,len>=0?'start':'end',SERIF,'600')+`</g>`});
+ s+=`<g class="fade3">`+T(W/2,344,'abaixo de 1,0 = a chance CAI. Olhe com desconfiança.',V6,11.5)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 12 · o confundidor ============ */
+function confundidor(){const W=520,H=360;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ s+=cx(180,40,164,52,'CARGA DE PRODUÇÃO',V1,'pop',0,12);
+ s+=T(262,110,'a variável que ninguém pôs no modelo',FA,10.5);
+ s+=cx(24,190,180,52,'HORAS SEM REVISÃO',V2,'pop',2,12);
+ s+=cx(320,190,176,52,'QUEBRA NA SEMANA',V6,'pop',3,12);
+ s+=seta(214,92,132,186,V1,'draw');s+=T(146,146,'−',V1,20,'middle',SERIF,'600');
+ s+=seta(310,92,398,186,V1,'draw d2');s+=T(374,146,'+',V1,20,'middle',SERIF,'600');
+ s+=`<g class="fade2">`+`<path pathLength="1" d="M 208 216 L 316 216" stroke="${V6}" stroke-width="2" stroke-dasharray="6 5" fill="none"/>`
+   +T(262,206,'o modelo vê isto',FA,10.5)+T(262,238,'e conclui −',V6,11.5)+`</g>`;
+ s+=`<g class="fade3">`+T(W/2,290,'r = −0,909',V1,17,'middle',SERIF,'600')
+   +T(W/2,316,'as prensas de baixa carga ficam mais tempo sem revisão',GA,11.5)
+   +T(W/2,338,'e são justamente as que quebram menos',GA,11.5)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 13 · o limiar deslizando ============ */
+function limiar(){const W=500,H=370;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=56,y0=286,w=392,h=210;
+ s+=eixos(x0,y0,w,h);
+ let dd='';for(let i=0;i<=70;i++){const z=-6+i*(12/70),X=x0+(i/70)*w,Y=y0-sig(z)*h;dd+=(i?' L ':'M ')+X.toFixed(1)+' '+Y.toFixed(1)}
+ s+=`<path class="draw" pathLength="1" d="${dd}" stroke="url(#gh)" stroke-width="2.8" fill="none"/>`;
+ [[0.5,V5,'0,50 — o padrão'],[0.15,V4,'0,15 — o do custo']].forEach((L,i)=>{
+   const y=y0-L[0]*h;
+   s+=`<g class="${i?'fade3':'fade2'}">`+`<path d="M ${x0} ${y} L ${x0+w} ${y}" stroke="${L[1]}" stroke-width="2" stroke-dasharray="7 5" fill="none"/>`
+     +T(x0+w+2,y+4,L[2],L[1],11,'end')+`</g>`});
+ s+=`<g class="fade3">`+T(x0+20,y0-0.5*h-14,'acima: ANTECIPA',V5,11,'start')+T(x0+20,y0-0.15*h-14,'acima: ANTECIPA',V4,11,'start')+`</g>`;
+ s+=T(x0-16,y0-h+4,'1',FA,11)+T(x0-16,y0+4,'0',FA,11);
+ s+=T(x0+w/2,y0+26,'a curva é a mesma. muda onde você corta.',FA,11.5);
+ s+=`<g class="fade3">`+T(W/2,344,'e onde cortar é decisão de manutenção, não de estatística',V5,12)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 14 · a matriz de confusão ============ */
+function matriz(){const W=500,H=390;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=140,y0=90,c=140;
+ s+=T(x0+c,58,'previu NÃO',GA,12)+T(x0+c*2,58,'previu SIM',GA,12);
+ s+=T(x0-14,y0+c/2+4,'quebrou',GA,12,'end')+T(x0-14,y0+c*1.5+4,'não quebrou',GA,12,'end');
+ const cel=[['FN',26,V6,0,0,'erro caro'],['VP',5,V4,1,0,'acerto'],['VN',147,V4,0,1,'acerto'],['FP',4,V5,1,1,'erro barato']];
+ cel.forEach((d,i)=>{const x=x0+d[3]*c,y=y0+d[4]*c;
+  s+=`<g class="pop" style="--i:${i*0.9}"><rect x="${x-c/2+8}" y="${y+8}" width="${c-16}" height="${c-16}" rx="10" fill="${d[2]}1A" stroke="${d[2]}" stroke-width="${d[5]==='acerto'?2.2:1.8}"/>`
+    +T(x,y+c/2-14,d[0],d[2],26,'middle',SERIF,'600')+T(x,y+c/2+16,d[1],INK,22,'middle',SERIF,'600')+T(x,y+c/2+38,d[5],FA,10.5)+`</g>`});
+ s+=`<g class="fade2">`+T(W/2,356,'as 182 semanas de teste, no limiar 0,50',FA,11.5)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 15 · precisão × recall na mesma matriz ============ */
+function precrec(){const W=520,H=430;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=186,y0=64,c=112;
+ const cel=[['FN',26,0,0],['VP',5,1,0],['VN',147,0,1],['FP',4,1,1]];
+ cel.forEach((d,i)=>{const x=x0+d[2]*c,y=y0+d[3]*c;
+  const dest=(d[0]==='VP');
+  s+=`<g class="pop" style="--i:${i}"><rect x="${x-c/2+6}" y="${y+6}" width="${c-12}" height="${c-12}" rx="9" fill="${dest?'rgba(47,184,154,.18)':'rgba(255,255,255,.03)'}" stroke="${dest?V3:'rgba(143,164,183,.3)'}" stroke-width="${dest?2.4:1.3}"/>`
+   +T(x,y+c/2-6,d[0],dest?V3:GA,17,'middle',SERIF,'600')+T(x,y+c/2+18,d[1],dest?INK:FA,15,'middle',SERIF,'600')+`</g>`});
+ // coluna = precisão
+ s+=`<g class="fade2"><rect x="${x0+c-c/2+2}" y="${y0+2}" width="${c-4}" height="${2*c-4}" rx="12" fill="none" stroke="${V3}" stroke-width="2" stroke-dasharray="7 5"/>`
+   +T(x0+c,y0+2*c+26,'PRECISÃO',V3,12.5,'middle',MONO,'600')+T(x0+c,y0+2*c+44,'a coluna do SIM',FA,11)+`</g>`;
+ // linha = recall
+ s+=`<g class="fade3"><rect x="${x0-c/2+2}" y="${y0+2}" width="${2*c-4}" height="${c-4}" rx="12" fill="none" stroke="${V5}" stroke-width="2" stroke-dasharray="7 5"/>`
+   +T(x0-c/2-14,y0+c/2+4,'RECALL',V5,12.5,'end',MONO,'600')+T(x0-c/2-14,y0+c/2+22,'a linha do QUEBROU',FA,11,'end')+`</g>`;
+ s+=`<g class="fade3">`+T(x0+c/2,H-16,'precisão 0,556   ·   recall 0,161',INK,15,'middle',SERIF,'600')+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 16 · curva ROC (dados reais do modelo) ============ */
+const ROC=[[0,0],[0.007,0],[0.013,0.065],[0.02,0.097],[0.046,0.161],[0.066,0.226],[0.066,0.29],[0.073,0.323],[0.079,0.387],[0.086,0.452],[0.099,0.484],[0.126,0.484],[0.139,0.548],[0.159,0.581],[0.166,0.645],[0.179,0.677],[0.179,0.71],[0.192,0.742],[0.219,0.774],[0.252,0.806],[0.272,0.871],[0.371,0.871],[0.49,0.903],[0.616,0.935],[0.722,0.968],[1,1]];
+function roc(){const W=470,H=400;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=64,y0=310,L=290;
+ s+=`<rect x="${x0}" y="${y0-L}" width="${L}" height="${L}" fill="rgba(255,255,255,.015)" stroke="rgba(143,164,183,.18)"/>`;
+ s+=eixos(x0,y0,L,L);
+ let ar='M '+x0+' '+y0;ROC.forEach(p=>{ar+=' L '+(x0+p[0]*L).toFixed(1)+' '+(y0-p[1]*L).toFixed(1)});ar+=` L ${x0+L} ${y0} Z`;
+ s+=`<g class="fade3"><path d="${ar}" fill="${V3}" opacity=".16"/></g>`;
+ s+=`<g class="fade2"><path d="M ${x0} ${y0} L ${x0+L} ${y0-L}" stroke="${FA}" stroke-width="1.6" stroke-dasharray="6 5" fill="none"/></g>`;
+ let dd='';ROC.forEach((p,i)=>{dd+=(i?' L ':'M ')+(x0+p[0]*L).toFixed(1)+' '+(y0-p[1]*L).toFixed(1)});
+ s+=`<path class="draw d2" pathLength="1" d="${dd}" stroke="url(#gsp)" stroke-width="3.2" fill="none" filter="url(#g1)"/>`;
+ s+=`<g class="fade3">`+T(x0+L*0.52,y0-L*0.38,'AUC',INK,13)+T(x0+L*0.52,y0-L*0.30,'0,831',INK,26,'middle',SERIF,'600')+`</g>`;
+ s+=T(x0+L/2,y0+30,'1 − especificidade  (alarme falso)',FA,11.5);
+ s+=`<text x="26" y="${y0-L/2}" fill="${FA}" font-size="11.5" font-family="${MONO}" text-anchor="middle" transform="rotate(-90 26 ${y0-L/2})">recall</text>`;
+ s+=`<g class="fade2">`+T(x0+L*0.80,y0-L*0.66,'cara ou coroa',FA,10.5)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 17 · k-fold ============ */
+function kfold(){const W=500,H=370;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const d=[0.811,0.772,0.898,0.939,0.793],x0=70,bw=62,y0=270,h=190;
+ d.forEach((v,i)=>{const bh=(v-0.70)/0.28*h,x=x0+i*(bw+16);
+  s+=`<rect class="grow" x="${x}" y="${(y0-bh).toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" rx="5" fill="${SP[i+1]}44" stroke="${SP[i+1]}" stroke-width="1.7"/>`;
+  s+=`<g class="fade2">`+T(x+bw/2,y0-bh-10,BR(v,3),SP[i+1],12)+T(x+bw/2,y0+20,'dobra '+(i+1),FA,10.5)+`</g>`});
+ const my=y0-(0.843-0.70)/0.28*h;
+ s+=`<g class="fade3">`+`<path d="M ${x0-14} ${my.toFixed(1)} L ${x0+5*(bw+16)} ${my.toFixed(1)}" stroke="${INK}" stroke-width="1.8" stroke-dasharray="7 5" fill="none"/>`
+   +T(x0-18,my+4,'média',INK,11,'end')+`</g>`;
+ s+=P(x0-14,y0,x0+5*(bw+16),y0,'rgba(143,164,183,.3)','',1.4);
+ s+=`<g class="fade3">`+T(W/2,320,'0,843  ±  0,065',INK,17,'middle',SERIF,'600')
+   +T(W/2,346,'a mesma base, cinco sorteios, 17 pontos de diferença',FA,11.5)+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 18 · custo por limiar (dados reais) ============ */
+const CUSTO=[[0.05,80800],[0.1,64800],[0.15,64800],[0.2,76000],[0.25,101600],[0.3,120800],[0.35,119200],[0.4,155200],[0.45,159200],[0.5,169600],[0.55,175200],[0.6,180800]];
+function custo(){const W=500,H=380;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const x0=76,y0=300,w=386,h=228,mx=190000;
+ s+=eixos(x0,y0,w,h);
+ [0,50000,100000,150000].forEach(v=>{const y=y0-v/mx*h;
+  s+=P(x0,y,x0+w,y,'rgba(143,164,183,.10)','',1)+T(x0-8,y+4,v?('R$ '+(v/1000)+'k'):'0',FA,10.5,'end')});
+ let dd='';CUSTO.forEach((p,i)=>{dd+=(i?' L ':'M ')+(x0+(p[0]-0.05)/0.55*w).toFixed(1)+' '+(y0-p[1]/mx*h).toFixed(1)});
+ s+=`<path class="draw d2" pathLength="1" d="${dd}" stroke="url(#gh)" stroke-width="3" fill="none" filter="url(#g1)"/>`;
+ CUSTO.forEach((p,i)=>{const X=x0+(p[0]-0.05)/0.55*w,Y=y0-p[1]/mx*h;
+  const mn=(p[0]===0.15);
+  s+=`<circle class="pop" style="--i:${i*0.5}" cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${mn?7:4}" fill="${mn?V4:V2}"/>`});
+ const Xm=x0+(0.15-0.05)/0.55*w,Ym=y0-64800/mx*h;
+ s+=`<g class="fade3">`+T(Xm,Ym-16,'R$ 64.800',V4,13,'middle',SERIF,'600')+T(Xm,y0+20,'0,15',V4,11)+`</g>`;
+ const Xp=x0+(0.5-0.05)/0.55*w,Yp=y0-169600/mx*h;
+ s+=`<g class="fade3">`+`<circle cx="${Xp.toFixed(1)}" cy="${Yp.toFixed(1)}" r="7" fill="${V6}"/>`
+   +T(Xp,Yp-16,'R$ 169.600',V6,13,'middle',SERIF,'600')+T(Xp,y0+20,'0,50',V6,11)+`</g>`;
+ s+=T(x0+w/2,y0+44,'limiar',FA,11.5);
+ return s+`</svg>`}
+
+/* ============ 19 · placar de modelos ============ */
+function placar(){const W=500,H=350;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const d=[['só umidade',0.490,V6],['só vibração',0.704,V2],['4 sensores úteis',0.837,V4],['4 úteis + umidade',0.831,V5]];
+ const x0=176,esc=310;
+ d.forEach((r,i)=>{const y=64+i*62,len=r[1]*esc;
+  s+=T(x0-12,y+22,r[0],GA,12,'end');
+  s+=`<g class="growx" style="--i:${i}"><rect x="${x0}" y="${y}" width="${len.toFixed(1)}" height="32" rx="5" fill="${r[2]}33" stroke="${r[2]}" stroke-width="1.7"/></g>`;
+  s+=`<g class="fade2">`+T(x0+len-8,y+22,BR(r[1],3),r[2],13.5,'end',SERIF,'600')+`</g>`});
+ s+=`<g class="fade2">`+P(x0+0.5*esc,52,x0+0.5*esc,308,V6,'',1.4)+T(x0+0.5*esc,326,'0,5 = cara ou coroa',V6,10.5)+`</g>`;
+ s+=`<g class="fade3">`+`<path d="M ${x0+0.837*esc} 190 L ${x0+0.831*esc} 252" stroke="${V6}" stroke-width="1.6" stroke-dasharray="5 4" fill="none"/>`
+   +T(x0+0.837*esc+12,222,'piorou',V6,11.5,'start')+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 20 · o relatório de uma página ============ */
+function relatorio(){const W=470,H=390;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ s+=`<rect x="70" y="30" width="330" height="330" rx="8" fill="rgba(232,238,244,.05)" stroke="rgba(143,164,183,.35)" stroke-width="1.6"/>`;
+ s+=T(96,66,'PRENSAS A PARAR — SEMANA 34',INK,12.5,'start',MONO,'600');
+ s+=P(96,78,374,78,'rgba(143,164,183,.25)','',1);
+ const linhas=[['Quebras evitadas por trimestre','26 de 31',V4],['Paradas antecipadas sem necessidade','41',V5],['Custo com o modelo','R$ 64.800',V4],['Custo do jeito atual','R$ 198.400',V6],['Revalidar em','3 meses',GA]];
+ linhas.forEach((L,i)=>{const y=110+i*42;
+  s+=`<g class="pop" style="--i:${i*1.1}">`+T(96,y,L[0],GA,11.5,'start')+T(374,y,L[1],L[2],15,'end',SERIF,'600')+`</g>`});
+ s+=`<g class="fade3">`+P(96,326,374,326,'rgba(143,164,183,.25)','',1)
+   +T(96,346,'nenhuma métrica adimensional nesta página',V5,11,'start')+`</g>`;
+ return s+`</svg>`}
+
+/* ============ 21 · drift ============ */
+function drift(){const W=500,H=380;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ function sino(cxx,esc,cor,cls,op){let d='';
+  for(let i=0;i<=60;i++){const x=-3+i*0.1,y=Math.exp(-x*x/2);
+    d+=(i?' L ':'M ')+(cxx+x*esc).toFixed(1)+' '+(160-y*82).toFixed(1)}
+  return `<path class="${cls}" pathLength="1" d="${d}" stroke="${cor}" stroke-width="2.4" fill="none" opacity="${op}"/>`}
+ s+=P(40,160,460,160,'rgba(143,164,183,.3)','',1.4);
+ s+=sino(160,28,V2,'draw',1)+sino(300,28,V6,'draw d2',1);
+ s+=`<g class="fade2">`+T(160,190,'no treino',V2,11.5)+T(300,190,'hoje',V6,11.5)
+   +seta(196,120,266,120,V6,'')+T(232,108,'deslocou',FA,10.5)+`</g>`;
+ s+=T(W/2,64,'DATA DRIFT — os dados mudaram',GA,12.5,'middle',MONO,'600');
+ s+=`<g class="fade3">`+T(W/2,246,'CONCEPT DRIFT — a relação mudou',GA,12.5,'middle',MONO,'600')
+   +cx(56,270,180,44,'turno noite → +risco',V2,'',0,12)
+   +seta(246,292,290,292,GA,'')
+   +cx(300,270,150,44,'não mais',V6,'',0,12)
+   +T(W/2,346,'a mesma vibração, outra consequência',FA,11.5)+`</g>`;
+ return s+`</svg>`}
+
+window.VIZ={hero,balanca,sujeira,reguas,estratifica,retavss,reguaodds,curvas,caixapreta,histo,expcoef,confundidor,limiar,matriz,precrec,roc,kfold,custo,placar,relatorio,drift};
+</script>
+<script>
+const deck=document.getElementById('deck');
+document.querySelectorAll('[data-viz]').forEach(el=>{const fn=window.VIZ[el.dataset.viz];if(fn)el.innerHTML=fn();});
+const slides=[...deck.querySelectorAll('.slide')];let i=0;const tot=slides.length;
+document.getElementById('tot').textContent=String(tot).padStart(2,'0');
+const prog=document.getElementById('prog');
+function show(n){
+ const target=Math.max(0,Math.min(tot-1,n));
+ const dir=target>=i?1:-1;
+ if(target!==i){const out=slides[i];out.style.setProperty('--dir',dir);out.classList.remove('active');out.classList.add('leaving');setTimeout(()=>out.classList.remove('leaving'),440);}
+ i=target;const inc=slides[i];inc.style.setProperty('--dir',dir);inc.classList.add('active');
+ document.getElementById('cur').textContent=String(i+1).padStart(2,'0');prog.style.width=((i+1)/tot*100)+'%';
+ slides.forEach(s=>s.querySelectorAll('.answer').forEach(a=>a.classList.remove('show')));}
+function tg(){const a=slides[i].querySelector('.answer');if(a)a.classList.toggle('show');}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(i+1);}else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(i-1);}else if(e.key==='Home')show(0);else if(e.key==='End')show(tot-1);else if(e.key.toLowerCase()==='r')tg();});
+deck.addEventListener('click',e=>{if(e.target.closest('.answer'))return;show(e.clientX/window.innerWidth<0.32?i-1:i+1);});
+let tx=0;deck.addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+deck.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>40)show(dx<0?i+1:i-1);});
+show(0);
+</script>
+</body></html>
