@@ -1,0 +1,880 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Machine Learning Aplicada à Indústria — o próximo degrau</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#222D3B; --bg2:#1B2531; --bg3:#273343;
+ --ink:#E8EEF4; --muted:#93A4B7; --faint:#5E7186;
+ --line:rgba(143,164,183,.12); --bru:rgba(143,164,183,.55);
+ --v1:#9168D6; --v2:#4F86C6; --v3:#2FB89A; --v4:#56C877; --v5:#B5DC4A; --v6:#F4ED45;
+ --c1:#4F86C6; --c2:#2FB89A; --c3:#B5DC4A; --c4:#9168D6;
+ --good:#56C877; --bad:#F4ED45; --money:#F4ED45; --risk:#E2725B;
+ --serif:'Lora',Georgia,serif; --body:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+ --spectral:linear-gradient(90deg,var(--v1),var(--v2),var(--v3),var(--v4),var(--v5),var(--v6));
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:var(--body);color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased;background:var(--bg)}
+.deck{position:fixed;inset:0;background:
+  linear-gradient(rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  linear-gradient(90deg,rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  radial-gradient(1100px 700px at 80% 8%, rgba(47,184,154,.06), transparent 60%),
+  radial-gradient(900px 650px at 10% 92%, rgba(145,104,214,.06), transparent 60%),
+  linear-gradient(160deg,var(--bg),var(--bg2))}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:5.4vh 6vw 6.4vh;opacity:0;transition:opacity .5s}
+.slide.active{display:flex;opacity:1}
+.frame{position:relative;--c:var(--bru);background:
+  linear-gradient(var(--c),var(--c)) 0 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 0 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 100%/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 100%/2px 18px no-repeat}
+.eyebrow{font-family:var(--mono);font-size:clamp(10px,1vw,12.5px);letter-spacing:2.6px;text-transform:uppercase;color:var(--v3);display:flex;align-items:center;gap:11px;margin-bottom:2vh}
+.eyebrow::before{content:"";width:28px;height:2px;background:var(--spectral);flex:none}
+.eyebrow.k1{color:var(--c1)}.eyebrow.k2{color:var(--c2)}.eyebrow.k3{color:var(--c3)}.eyebrow.k4{color:var(--c4)}
+.eyebrow.money{color:var(--v6)}
+.title{font-family:var(--serif);font-weight:600;font-size:clamp(26px,3.9vw,50px);line-height:1.06;letter-spacing:-.5px;text-wrap:balance}
+.title.sm{font-size:clamp(23px,3.2vw,40px)}
+.title.xl{font-size:clamp(30px,4.6vw,60px)}
+.spectral-text{background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{font-size:clamp(14px,1.55vw,19px);color:var(--muted);max-width:52ch;line-height:1.55;margin-top:1.8vh}
+.lede .hl{color:var(--ink);font-weight:500}
+.lede .money{color:var(--v6);font-weight:600}
+.cap{font-family:var(--mono);font-size:clamp(11px,1.05vw,13px);color:var(--muted);line-height:1.5}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(22px,3.2vw,52px);align-items:center;flex:1;min-height:0}
+.cols.r{grid-template-columns:1.06fr .94fr}.cols.l{grid-template-columns:.94fr 1.06fr}
+.cols.book{grid-template-columns:.58fr 1.42fr}
+.flush{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+.viz{width:100%;display:flex;align-items:center;justify-content:center;min-height:0}
+.viz svg{width:100%;height:auto;max-height:66vh;display:block;overflow:visible}
+.note{padding:14px 17px;margin-top:13px}
+.note .nl{font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;color:var(--v3)}
+.note .nb{font-size:13.5px;color:#D6DEE7;line-height:1.5}
+.note .nb b{color:var(--ink);font-weight:600}
+.note.warn .nl{color:var(--v6)} .note.ok .nl{color:var(--v4)} .note.violet .nl{color:var(--v1)}
+.rules{list-style:none;margin-top:6px}
+.rules li{position:relative;padding-left:19px;margin-bottom:10px;font-size:clamp(13px,1.28vw,16px);color:#D2DAE2;max-width:48ch;line-height:1.45}
+.rules li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:2px;background:var(--v3)}
+.rules li.b2::before{background:var(--v5)}.rules li.b3::before{background:var(--v1)}.rules li.bad::before{background:var(--v6)}
+.rules li .k{color:var(--ink);font-weight:600}
+.bridge{font-family:var(--mono);font-size:11.5px;color:var(--faint);letter-spacing:.6px;margin-top:1.6vh;display:flex;gap:16px;flex-wrap:wrap}
+.bridge b{color:var(--muted);font-weight:500}
+.boxes{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%}
+.boxes.q4{grid-template-columns:repeat(4,1fr)}
+.boxes.q2{grid-template-columns:repeat(2,1fr)}
+.box{padding:20px 19px;border-radius:6px;background:rgba(20,28,38,.55)}
+.box .n{font-family:var(--mono);font-size:11px;letter-spacing:1.8px;text-transform:uppercase;margin-bottom:10px}
+.box .t{font-family:var(--serif);font-weight:600;font-size:clamp(17px,1.75vw,22px);margin-bottom:8px}
+.box .d{font-size:13.2px;color:var(--muted);line-height:1.5}
+.box.k1{border-top:2px solid var(--c1)}.box.k1 .n{color:var(--c1)}
+.box.k2{border-top:2px solid var(--c2)}.box.k2 .n{color:var(--c2)}
+.box.k3{border-top:2px solid var(--c3)}.box.k3 .n{color:var(--c3)}
+.box.k4{border-top:2px solid var(--c4)}.box.k4 .n{color:var(--c4)}
+.pipe{display:flex;flex-wrap:wrap;gap:10px;width:100%}
+.step{flex:1 1 0;min-width:112px;padding:12px 12px 14px;border-radius:6px;background:rgba(20,28,38,.55);border-left:3px solid var(--v3)}
+.step.nw{border-left-color:var(--v6);background:rgba(244,237,69,.06)}
+.step .sn{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--v3);margin-bottom:4px}
+.step.nw .sn{color:var(--v6)}
+.step .st{font-size:12.8px;color:#D2DAE2;line-height:1.32}
+
+/* ---- o preço: a marca desta disciplina ---- */
+.price{display:inline-flex;align-items:baseline;gap:7px;font-family:var(--mono);font-weight:600;
+  color:var(--v6);background:rgba(244,237,69,.09);border:1px solid rgba(244,237,69,.28);
+  border-radius:4px;padding:4px 10px;font-size:clamp(12px,1.2vw,14.5px);white-space:nowrap}
+.price .pl{color:var(--faint);font-weight:400;font-size:.82em;letter-spacing:1px;text-transform:uppercase}
+.scale{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(14px,2vw,26px);align-items:center;width:100%}
+.pan{padding:clamp(18px,2.4vw,28px);border-radius:7px;background:rgba(20,28,38,.6);border-top:2px solid var(--c2)}
+.pan.heavy{border-top-color:var(--v6);background:rgba(244,237,69,.055)}
+.pan .pk{font-family:var(--mono);font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--c2);margin-bottom:9px}
+.pan.heavy .pk{color:var(--v6)}
+.pan .pv{font-family:var(--serif);font-weight:700;font-size:clamp(28px,4vw,54px);line-height:1;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.pan.heavy .pv{color:var(--v6)}
+.pan .pd{font-size:12.8px;color:var(--muted);margin-top:9px;line-height:1.45}
+.mult{font-family:var(--serif);font-weight:700;font-size:clamp(26px,3.4vw,44px);color:var(--ink);text-align:center;line-height:1}
+.mult small{display:block;font-family:var(--mono);font-size:10.5px;font-weight:400;letter-spacing:1.6px;color:var(--faint);margin-top:8px;text-transform:uppercase}
+
+/* ---- números grandes ---- */
+.stat{display:flex;flex-direction:column;gap:5px}
+.stat .sv{font-family:var(--serif);font-weight:700;font-size:clamp(34px,5.4vw,74px);line-height:.95;letter-spacing:-1.5px;font-variant-numeric:tabular-nums}
+.stat .sl{font-family:var(--mono);font-size:11px;letter-spacing:1.8px;text-transform:uppercase;color:var(--faint)}
+.statrow{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,2.6vw,40px);width:100%}
+.tone-good .sv{color:var(--v4)} .tone-bad .sv{color:var(--v6)} .tone-risk .sv{color:var(--risk)} .tone-cool .sv{color:var(--c1)}
+
+/* ---- livros ---- */
+.shelf{display:grid;grid-template-columns:repeat(6,1fr);gap:clamp(10px,1.4vw,20px);width:100%;align-items:end}
+.capa{position:relative;width:100%;aspect-ratio:2/3;border-radius:3px;overflow:hidden;
+  background:linear-gradient(155deg,#2B394B,#18212D);
+  box-shadow:0 16px 34px rgba(0,0,0,.5), inset 0 0 0 1px rgba(143,164,183,.14);
+  display:flex;flex-direction:column;justify-content:space-between;padding:11% 10% 9%}
+.capa::before{content:"";position:absolute;left:0;top:0;bottom:0;width:7%;
+  background:linear-gradient(90deg,rgba(0,0,0,.45),rgba(0,0,0,0))}
+.capa .cmark{position:absolute;inset:0;opacity:.5}
+.capa .ct{position:relative;font-family:var(--serif);font-weight:600;font-size:clamp(9px,.95vw,13px);line-height:1.15;letter-spacing:-.2px}
+.capa .ca{position:relative;font-family:var(--mono);font-size:clamp(7px,.62vw,8.5px);letter-spacing:.6px;color:var(--muted);line-height:1.35}
+.capa .ced{position:absolute;right:9%;bottom:0;height:4px;width:34%;border-radius:2px}
+.capa.big{max-width:255px;margin:0 auto;box-shadow:0 24px 54px rgba(0,0,0,.58), inset 0 0 0 1px rgba(143,164,183,.16)}
+.capa.big .ct{font-size:clamp(15px,1.7vw,22px)}
+.capa.big .ca{font-size:clamp(9px,.9vw,11.5px)}
+.booktag{font-family:var(--mono);font-size:11px;letter-spacing:2.2px;text-transform:uppercase;color:var(--v1);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.booktag::before{content:"{";font-family:var(--serif);font-size:22px;color:var(--v3);line-height:0}
+.booktitle{font-family:var(--serif);font-weight:600;font-size:clamp(19px,2.1vw,27px);line-height:1.2;text-wrap:balance}
+.bookauthor{font-family:var(--mono);font-size:clamp(11.5px,1.1vw,13.5px);color:var(--muted);margin-top:10px}
+.bookwhy{font-size:clamp(13px,1.35vw,16px);color:#D2DAE2;line-height:1.55;margin-top:16px;max-width:44ch}
+.bookwhy .q{color:var(--v5);font-weight:500}
+.freetag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:1.6px;text-transform:uppercase;
+  color:var(--v4);border:1px solid rgba(86,200,119,.4);background:rgba(86,200,119,.08);border-radius:3px;padding:3px 8px;margin-top:14px}
+
+/* ---- janela de código ---- */
+.window{width:100%;max-width:620px;border-radius:9px;overflow:hidden;border:1px solid var(--line);background:rgba(15,22,32,.82);box-shadow:0 24px 60px rgba(0,0,0,.45);margin:0 auto}
+.window .bar{display:flex;align-items:center;gap:7px;padding:11px 14px;background:rgba(39,51,67,.9);border-bottom:1px solid var(--line)}
+.window .bar i{width:11px;height:11px;border-radius:50%;display:block}
+.window .bar .t{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:1.4px;margin-left:10px}
+.window .body{padding:clamp(20px,3vw,34px)}
+.code{font-family:var(--mono);font-size:clamp(12px,1.18vw,14.5px);line-height:1.85;color:#D2DAE2}
+.code .cm{color:var(--faint)}
+.code .kw{color:var(--v1)}
+.code .st{color:var(--v5)}
+.code .fn{color:var(--v3)}
+.code .nu{color:var(--v6)}
+
+.counter{position:fixed;right:2vw;bottom:2.2vh;font-family:var(--mono);font-size:11.5px;color:var(--faint);z-index:30}
+.counter b{color:var(--v6)}
+.brand{position:fixed;left:6vw;bottom:2.2vh;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:2px;z-index:30}
+.progress{position:fixed;left:0;bottom:0;height:2px;z-index:30;background:var(--spectral);transition:width .5s;width:4%}
+.hint{position:fixed;right:2vw;top:2.2vh;font-family:var(--mono);font-size:10.5px;color:var(--faint);z-index:30}
+button.nav{position:fixed;top:50%;transform:translateY(-50%);z-index:31;background:none;border:0;color:var(--faint);
+  font-family:var(--mono);font-size:22px;cursor:pointer;padding:14px 10px;opacity:.35;transition:opacity .2s}
+button.nav:hover,button.nav:focus-visible{opacity:1;color:var(--v3)}
+button.nav:focus-visible{outline:2px solid var(--v3);outline-offset:2px;border-radius:4px}
+#pv{left:1vw} #nx{right:1vw}
+
+@media(max-width:900px){
+ .cols,.cols.r,.cols.l,.cols.book,.boxes,.boxes.q4,.boxes.q2,.statrow,.scale{grid-template-columns:1fr;gap:14px}
+ .viz svg{max-height:40vh}.capa.big{max-width:140px}.shelf{grid-template-columns:repeat(3,1fr)}
+ .mult{padding:6px 0}
+}
+
+@keyframes slideEnter{from{opacity:0;transform:translateX(calc(var(--dir,1)*48px))}to{opacity:1;transform:none}}
+@keyframes slideLeave{from{opacity:1;transform:none}to{opacity:0;transform:translateX(calc(var(--dir,1)*-48px)) scale(.99)}}
+@keyframes reveal{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes popIn{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes drawln{to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes zoomin{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+
+.slide.active{animation:slideEnter .6s cubic-bezier(.22,.61,.36,1) both;z-index:2}
+.slide.leaving{display:flex!important;animation:slideLeave .42s ease both;z-index:1;pointer-events:none}
+.slide.active .eyebrow{animation:reveal .55s .02s both}
+.slide.active .title{animation:reveal .6s .12s both}
+.slide.active .lede{animation:reveal .6s .22s both}
+.slide.active .cap{animation:reveal .6s .5s both}
+.slide.active .bridge{animation:fadein .8s .62s both}
+.slide.active .note{animation:reveal .65s .42s both}
+.slide.active .rules li{animation:reveal .5s both}
+.slide.active .rules li:nth-child(1){animation-delay:.3s}
+.slide.active .rules li:nth-child(2){animation-delay:.39s}
+.slide.active .rules li:nth-child(3){animation-delay:.48s}
+.slide.active .rules li:nth-child(4){animation-delay:.57s}
+.slide.active .rules li:nth-child(5){animation-delay:.66s}
+.slide.active .boxes .box{animation:reveal .6s both}
+.slide.active .boxes .box:nth-child(1){animation-delay:.24s}
+.slide.active .boxes .box:nth-child(2){animation-delay:.36s}
+.slide.active .boxes .box:nth-child(3){animation-delay:.48s}
+.slide.active .boxes .box:nth-child(4){animation-delay:.6s}
+.slide.active .boxes .box:nth-child(5){animation-delay:.72s}
+.slide.active .boxes .box:nth-child(6){animation-delay:.84s}
+.slide.active .pipe .step{animation:reveal .5s both}
+.slide.active .pipe .step:nth-child(1){animation-delay:.22s}
+.slide.active .pipe .step:nth-child(2){animation-delay:.31s}
+.slide.active .pipe .step:nth-child(3){animation-delay:.40s}
+.slide.active .pipe .step:nth-child(4){animation-delay:.49s}
+.slide.active .pipe .step:nth-child(5){animation-delay:.58s}
+.slide.active .viz{animation:reveal .65s .18s both}
+.slide.active .scale .pan{animation:reveal .6s both}
+.slide.active .scale .pan:nth-child(1){animation-delay:.26s}
+.slide.active .scale .mult{animation:popIn .5s .5s both}
+.slide.active .scale .pan:nth-child(3){animation-delay:.7s}
+.slide.active .statrow .stat{animation:reveal .6s both}
+.slide.active .statrow .stat:nth-child(1){animation-delay:.26s}
+.slide.active .statrow .stat:nth-child(2){animation-delay:.4s}
+.slide.active .statrow .stat:nth-child(3){animation-delay:.54s}
+.slide.active .shelf .capa{animation:reveal .6s both}
+.slide.active .shelf .capa:nth-child(1){animation-delay:.2s}
+.slide.active .shelf .capa:nth-child(2){animation-delay:.3s}
+.slide.active .shelf .capa:nth-child(3){animation-delay:.4s}
+.slide.active .shelf .capa:nth-child(4){animation-delay:.5s}
+.slide.active .shelf .capa:nth-child(5){animation-delay:.6s}
+.slide.active .shelf .capa:nth-child(6){animation-delay:.7s}
+.slide.active .capa.big{animation:zoomin .7s .16s both}
+.slide.active .booktag{animation:reveal .55s .26s both}
+.slide.active .booktitle{animation:reveal .6s .34s both}
+.slide.active .bookauthor{animation:reveal .6s .42s both}
+.slide.active .bookwhy{animation:reveal .6s .5s both}
+.slide.active .freetag{animation:reveal .6s .6s both}
+.slide.active .window{animation:zoomin .7s .18s both}
+.slide.active .viz .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:drawln 1s .45s ease forwards}
+.slide.active .viz .draw.d2{animation-delay:.95s}
+.slide.active .viz .draw.d3{animation-delay:1.35s}
+.slide.active .viz .pop{transform-box:fill-box;transform-origin:center;animation:popIn .5s both;animation-delay:calc(.5s + var(--i,0)*0.05s)}
+.slide.active .viz .fade{animation:fadein .8s .5s both}
+.slide.active .viz .fade2{animation:fadein .8s 1.1s both}
+.slide.active .viz .fade3{animation:fadein .9s 1.7s both}
+
+@media (prefers-reduced-motion: reduce){
+ .slide.active,.slide.leaving{animation:none!important}
+ .slide.active *{animation:none!important;opacity:1!important;transform:none!important;stroke-dashoffset:0!important}
+ .progress{transition:none}
+}
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- ============ 01 · CAPA ============ -->
+<section class="slide">
+  <div class="cols r">
+    <div class="flush">
+      <div class="eyebrow">o próximo degrau · senai-sp</div>
+      <h1 class="title xl">Machine Learning<br><span class="spectral-text">Aplicada à Indústria</span></h1>
+      <p class="lede">Vocês estão começando <span class="hl">Fundamentos de IA e Análise de Dados</span>. Este é o curso que vem depois — onde o modelo para de ser exercício e passa a <span class="hl">custar ou economizar dinheiro de verdade</span>.</p>
+      <div class="bridge">
+        <span><b>60 h</b> · aperfeiçoamento profissional</span>
+        <span><b>20</b> bases industriais</span>
+        <span><b>Prof.</b> Luis Tatin</span>
+      </div>
+    </div>
+    <div class="viz">
+      <svg viewBox="0 0 520 400" role="img" aria-label="Sensores de uma prensa convergindo para uma decisão de parar ou deixar rodar">
+        <defs>
+          <linearGradient id="gsp" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#9168D6"/><stop offset=".35" stop-color="#2FB89A"/><stop offset="1" stop-color="#F4ED45"/>
+          </linearGradient>
+        </defs>
+        <text x="260" y="22" fill="#5E7186" font-size="11" font-family="JetBrains Mono" text-anchor="middle" letter-spacing="2">SENSORES DO TURNO</text>
+        <g>
+          <circle class="pop" style="--i:0" cx="60"  cy="62" r="5" fill="#9168D6"/>
+          <circle class="pop" style="--i:1" cx="140" cy="48" r="5" fill="#7C74CE"/>
+          <circle class="pop" style="--i:2" cx="220" cy="68" r="5" fill="#4F86C6"/>
+          <circle class="pop" style="--i:3" cx="300" cy="44" r="5" fill="#3BA0B0"/>
+          <circle class="pop" style="--i:4" cx="380" cy="70" r="5" fill="#2FB89A"/>
+          <circle class="pop" style="--i:5" cx="458" cy="52" r="5" fill="#56C877"/>
+          <circle class="pop" style="--i:6" cx="100" cy="104" r="5" fill="#4F86C6"/>
+          <circle class="pop" style="--i:7" cx="182" cy="118" r="5" fill="#2FB89A"/>
+          <circle class="pop" style="--i:8" cx="262" cy="100" r="5" fill="#7EC85E"/>
+          <circle class="pop" style="--i:9" cx="342" cy="122" r="5" fill="#B5DC4A"/>
+          <circle class="pop" style="--i:10" cx="422" cy="106" r="5" fill="#D7E44A"/>
+        </g>
+        <path class="draw" pathLength="1" d="M 60 140 C 180 190, 200 196, 258 214" fill="none" stroke="url(#gsp)" stroke-width="2.2" opacity=".8"/>
+        <path class="draw" pathLength="1" d="M 458 140 C 340 190, 320 196, 262 214" fill="none" stroke="url(#gsp)" stroke-width="2.2" opacity=".8"/>
+        <path class="draw d2" pathLength="1" d="M 260 216 L 260 258" fill="none" stroke="#2FB89A" stroke-width="2.6"/>
+        <g class="fade2">
+          <rect x="150" y="258" width="220" height="46" rx="6" fill="rgba(20,28,38,.85)" stroke="#2FB89A" stroke-width="1.4"/>
+          <text x="260" y="287" fill="#E8EEF4" font-size="17" font-family="Lora" font-weight="600" text-anchor="middle">o modelo</text>
+        </g>
+        <path class="draw d3" pathLength="1" d="M 200 306 L 150 344" fill="none" stroke="#56C877" stroke-width="2"/>
+        <path class="draw d3" pathLength="1" d="M 320 306 L 372 344" fill="none" stroke="#F4ED45" stroke-width="2"/>
+        <g class="fade3">
+          <rect x="34" y="344" width="232" height="44" rx="6" fill="rgba(86,200,119,.10)" stroke="rgba(86,200,119,.5)"/>
+          <text x="150" y="365" fill="#56C877" font-size="10.5" font-family="JetBrains Mono" text-anchor="middle" letter-spacing="1.6">DEIXAR RODAR</text>
+          <text x="150" y="380" fill="#93A4B7" font-size="11" font-family="JetBrains Mono" text-anchor="middle">R$ 0</text>
+          <rect x="288" y="344" width="198" height="44" rx="6" fill="rgba(244,237,69,.10)" stroke="rgba(244,237,69,.5)"/>
+          <text x="387" y="365" fill="#F4ED45" font-size="10.5" font-family="JetBrains Mono" text-anchor="middle" letter-spacing="1.6">PARAR AGORA</text>
+          <text x="387" y="380" fill="#93A4B7" font-size="11" font-family="JetBrains Mono" text-anchor="middle">R$ 1.500</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 · VOCÊ ESTÁ AQUI ============ -->
+<section class="slide">
+  <div class="flush">
+    <div class="eyebrow k1">a trilha completa</div>
+    <h2 class="title">Vocês estão no degrau 1.<br>Existe um degrau 2.</h2>
+    <p class="lede">Fundamentos entrega o que quase ninguém tem: <span class="hl">saber olhar um dado e não ser enganado por ele</span>. O curso seguinte usa isso como matéria-prima — e vai até onde a decisão custa dinheiro.</p>
+    <div class="boxes q2" style="margin-top:3vh">
+      <div class="box k1">
+        <div class="n">agora · você está aqui</div>
+        <div class="t">Fundamentos de IA e Análise de Dados</div>
+        <div class="d">Estatística, Python, visualização e o vocabulário da IA. Você aprende a <b style="color:#E8EEF4">descrever</b> o que aconteceu.</div>
+      </div>
+      <div class="box k3">
+        <div class="n">depois · 60 horas</div>
+        <div class="t">Machine Learning Aplicada à Indústria</div>
+        <div class="d">Sensores, falhas, refugo e parada de linha. Você aprende a <b style="color:#E8EEF4">prever</b> o que vem — e a decidir o que fazer com a previsão.</div>
+      </div>
+    </div>
+    <div class="note frame warn" style="max-width:74ch">
+      <div class="nl">o combinado dos dois cursos</div>
+      <div class="nb">O pré-requisito do segundo é exatamente o primeiro. <b>Quem terminar aqui entra lá sem degrau faltando</b> — e é por isso que faz sentido eu já contar o que vem.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 · A PERGUNTA ============ -->
+<section class="slide">
+  <div class="cols l">
+    <div class="flush">
+      <div class="eyebrow money">a pergunta que abre o curso</div>
+      <h2 class="title">"Paro a prensa agora,<br>ou deixo rodar?"</h2>
+      <p class="lede">Todo turno, um supervisor olha os sensores de quatro prensas e decide. Ele erra dos dois lados — e os <span class="hl">dois erros não custam a mesma coisa</span>.</p>
+      <p class="lede">Essa assimetria é o coração da disciplina. Nenhuma biblioteca resolve por você.</p>
+    </div>
+    <div class="flush">
+      <div class="scale">
+        <div class="pan">
+          <div class="pk">parada programada</div>
+          <div class="pv">R$ 1.500</div>
+          <div class="pd">40 minutos de linha parada — mas <b style="color:#E8EEF4">você escolheu a hora</b>.</div>
+        </div>
+        <div class="mult">8×<small>uma quebra<br>vale 8 paradas</small></div>
+        <div class="pan heavy">
+          <div class="pk">quebra em produção</div>
+          <div class="pv">R$ 12.000</div>
+          <div class="pd">4 horas, troca de componente e um susto — <b style="color:#E8EEF4">a linha decidiu por você</b>.</div>
+        </div>
+      </div>
+      <div class="note frame" style="margin-top:2.4vh">
+        <div class="nl">o número que decide tudo</div>
+        <div class="nb">Guarde o <b>8</b>. É ele — e não a acurácia — que vai escolher o ponto de corte do alarme na última aula.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 04 · A ACURÁCIA MENTE ============ -->
+<section class="slide">
+  <div class="flush">
+    <div class="eyebrow k3">o primeiro choque</div>
+    <h2 class="title">91,4% de acerto.<br>E é um <span class="spectral-text">desastre</span>.</h2>
+    <p class="lede">Este é um modelo real do curso, prevendo reprovação de solda. A nota parece ótima. Agora olhe o que ele <span class="hl">de fato fez</span> com as 18 peças ruins do teste.</p>
+    <div class="statrow" style="margin-top:3.4vh">
+      <div class="stat tone-cool"><div class="sv">91,4%</div><div class="sl">acurácia do modelo</div></div>
+      <div class="stat tone-cool"><div class="sv">91,4%</div><div class="sl">acurácia de nunca fazer nada</div></div>
+      <div class="stat tone-bad"><div class="sv">2 <span style="font-size:.42em;color:#93A4B7">de 18</span></div><div class="sl">peças ruins capturadas</div></div>
+    </div>
+    <div class="note frame warn" style="max-width:78ch">
+      <div class="nl">o que ninguém te conta</div>
+      <div class="nb">Um modelo que responde <b>"está tudo bem"</b> para todas as peças tira exatamente a mesma nota. A acurácia foi medir a classe grande — que é justamente a que não interessa. <b>Mudar o limiar de 0,50 para 0,20 derruba a acurácia dois pontos e corta o prejuízo pela metade.</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 05 · A ARMADILHA ============ -->
+<section class="slide">
+  <div class="cols r">
+    <div class="flush">
+      <div class="eyebrow money">o exercício que quebra a turma</div>
+      <h2 class="title sm">A base de <span class="spectral-text">melhor métrica</span> é a única que <span style="color:var(--v6)">não se implanta</span>.</h2>
+      <p class="lede">Três problemas, três setores. O de expedição dá <span class="hl">AUC 0,954</span> — de longe o melhor. E a resposta certa é <span class="money">não implantar</span>.</p>
+      <ul class="rules" style="margin-top:2vh">
+        <li class="bad"><span class="k">O denunciante:</span> uma coluna multiplica a chance de atraso por <b>7,1</b>. Nenhuma variável honesta de logística faz isso.</li>
+        <li class="bad"><span class="k">A prova:</span> entre as cargas no prazo, <b>83,2%</b> têm espera zero no pátio. Entre as atrasadas, <b>7,2%</b>.</li>
+        <li class="bad"><span class="k">O motivo:</span> essa coluna só é preenchida <b>quando o caminhão volta</b>. Ela não existe na hora de decidir.</li>
+      </ul>
+    </div>
+    <div class="viz">
+      <svg viewBox="0 0 460 380" role="img" aria-label="AUC das três bases: expedição 0,954 com vazamento cai para 0,655 sem a coluna vazada">
+        <text x="20" y="20" fill="#5E7186" font-size="10.5" font-family="JetBrains Mono" letter-spacing="1.8">AUC POR BASE</text>
+        <g class="fade">
+          <rect x="20" y="46" width="286" height="34" rx="4" fill="rgba(79,134,198,.22)" stroke="rgba(79,134,198,.5)"/>
+          <text x="32" y="68" fill="#E8EEF4" font-size="13" font-family="JetBrains Mono">solda · 0,886</text>
+          <text x="318" y="68" fill="#56C877" font-size="11" font-family="JetBrains Mono">IMPLANTAR</text>
+          <rect x="20" y="98" width="246" height="34" rx="4" fill="rgba(47,184,154,.22)" stroke="rgba(47,184,154,.5)"/>
+          <text x="32" y="120" fill="#E8EEF4" font-size="13" font-family="JetBrains Mono">pintura · 0,760</text>
+          <text x="278" y="120" fill="#B5DC4A" font-size="11" font-family="JetBrains Mono">COM RESSALVA</text>
+        </g>
+        <g class="fade2">
+          <rect x="20" y="150" width="308" height="34" rx="4" fill="rgba(244,237,69,.2)" stroke="#F4ED45" stroke-width="1.5"/>
+          <text x="32" y="172" fill="#F4ED45" font-size="13" font-family="JetBrains Mono" font-weight="600">expedição · 0,954</text>
+          <text x="340" y="172" fill="#F4ED45" font-size="11" font-family="JetBrains Mono">← a maior</text>
+        </g>
+        <g class="fade3">
+          <path d="M 174 194 L 174 226" stroke="#E2725B" stroke-width="2" stroke-dasharray="4 4"/>
+          <text x="186" y="216" fill="#E2725B" font-size="11" font-family="JetBrains Mono">tire a coluna vazada</text>
+          <rect x="20" y="234" width="212" height="34" rx="4" fill="rgba(226,114,91,.18)" stroke="rgba(226,114,91,.6)"/>
+          <text x="32" y="256" fill="#E8EEF4" font-size="13" font-family="JetBrains Mono">expedição · 0,655</text>
+          <text x="244" y="256" fill="#E2725B" font-size="11" font-family="JetBrains Mono">NÃO IMPLANTAR</text>
+          <rect x="20" y="292" width="416" height="70" rx="6" fill="rgba(20,28,38,.7)" stroke="rgba(143,164,183,.2)"/>
+          <text x="36" y="316" fill="#93A4B7" font-size="11" font-family="JetBrains Mono" letter-spacing="1.4">E MESMO LIMPO:</text>
+          <text x="36" y="340" fill="#E8EEF4" font-size="14" font-family="Lora" font-weight="600">R$ 6.300 de economia sobre R$ 63.000.</text>
+          <text x="36" y="356" fill="#93A4B7" font-size="11.5" font-family="Inter">Não paga o trabalho de operar o modelo.</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 06 · A SILHUETA BONITA ============ -->
+<section class="slide">
+  <div class="cols l">
+    <div class="flush">
+      <div class="eyebrow k4">e mais uma, para não dizer que foi sorte</div>
+      <h2 class="title sm">Silhueta <span class="spectral-text">0,775</span>.<br>Uma nota excelente para a pergunta errada.</h2>
+      <p class="lede">Agrupamos 132 lotes de estamparia para descobrir <span class="hl">quais arriscam sair fora de tolerância</span>. O algoritmo separou três grupos lindos. Depois olhamos o risco de cada um.</p>
+      <div class="note frame violet" style="max-width:60ch">
+        <div class="nl">o veredito</div>
+        <div class="nb">O agrupamento separou <b>espessura de chapa</b> — 1,00 mm, 1,55 mm e 2,10 mm. Ele não sabe nada sobre risco. Achou uma verdade real, útil e <b>completamente irrelevante para a pergunta feita</b>.</div>
+      </div>
+    </div>
+    <div class="viz">
+      <svg viewBox="0 0 440 340" role="img" aria-label="Três grupos com silhueta 0,775 e proporção de lotes fora de tolerância praticamente idêntica: 11,4%, 10,9% e 11,9%">
+        <text x="20" y="18" fill="#5E7186" font-size="10.5" font-family="JetBrains Mono" letter-spacing="1.8">LOTES FORA DE TOLERÂNCIA, POR GRUPO</text>
+        <line x1="20" y1="250" x2="420" y2="250" stroke="rgba(143,164,183,.3)"/>
+        <line x1="20" y1="136" x2="420" y2="136" stroke="rgba(244,237,69,.45)" stroke-dasharray="5 5"/>
+        <text x="20" y="128" fill="#F4ED45" font-size="10" font-family="JetBrains Mono" text-anchor="start" letter-spacing="1.2">MÉDIA DA BASE INTEIRA: 11,4%</text>
+        <g class="fade">
+          <rect x="52"  y="138" width="82" height="112" rx="3" fill="rgba(145,104,214,.5)" stroke="#9168D6"/>
+          <text x="93"  y="128" fill="#E8EEF4" font-size="16" font-family="Lora" font-weight="600" text-anchor="middle">11,4%</text>
+          <text x="93"  y="270" fill="#93A4B7" font-size="11" font-family="JetBrains Mono" text-anchor="middle">grupo 1</text>
+          <text x="93"  y="286" fill="#5E7186" font-size="10" font-family="JetBrains Mono" text-anchor="middle">chapa 1,55 mm</text>
+          <rect x="179" y="143" width="82" height="107" rx="3" fill="rgba(79,134,198,.5)" stroke="#4F86C6"/>
+          <text x="220" y="133" fill="#E8EEF4" font-size="16" font-family="Lora" font-weight="600" text-anchor="middle">10,9%</text>
+          <text x="220" y="270" fill="#93A4B7" font-size="11" font-family="JetBrains Mono" text-anchor="middle">grupo 2</text>
+          <text x="220" y="286" fill="#5E7186" font-size="10" font-family="JetBrains Mono" text-anchor="middle">chapa 1,00 mm</text>
+          <rect x="306" y="133" width="82" height="117" rx="3" fill="rgba(47,184,154,.5)" stroke="#2FB89A"/>
+          <text x="347" y="123" fill="#E8EEF4" font-size="16" font-family="Lora" font-weight="600" text-anchor="middle">11,9%</text>
+          <text x="347" y="270" fill="#93A4B7" font-size="11" font-family="JetBrains Mono" text-anchor="middle">grupo 3</text>
+          <text x="347" y="286" fill="#5E7186" font-size="10" font-family="JetBrains Mono" text-anchor="middle">chapa 2,10 mm</text>
+        </g>
+        <text class="fade3" x="220" y="322" fill="#F4ED45" font-size="13.5" font-family="Lora" font-style="italic" text-anchor="middle">Três grupos. O mesmo risco. Zero informação para decidir.</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 07 · O QUE VOCÊ VAI COMANDAR ============ -->
+<section class="slide">
+  <div class="flush">
+    <div class="eyebrow k2">o arsenal</div>
+    <h2 class="title">Sete algoritmos.<br>Um método só.</h2>
+    <p class="lede">Cada um resolve uma pergunta diferente da fábrica — e todos passam pelo mesmo caminho, do CSV sujo até a folha que o gestor assina.</p>
+    <div class="boxes" style="margin-top:2.6vh">
+      <div class="box k1"><div class="n">quanto?</div><div class="t">Regressão Linear</div><div class="d">Quantos minutos vai durar a parada da prensa. Um número, e o erro em minutos.</div></div>
+      <div class="box k2"><div class="n">qual a chance?</div><div class="t">Regressão Logística</div><div class="d">A curva em S. O modelo responde em <i>chance</i>, e alguém tem que traduzir.</div></div>
+      <div class="box k3"><div class="n">sim ou não?</div><div class="t">Árvore de Decisão</div><div class="d">Uma sequência de boas perguntas — e regras que cabem numa reunião.</div></div>
+    </div>
+    <div class="boxes q4" style="margin-top:16px">
+      <div class="box k4"><div class="n">e se eu juntar 500?</div><div class="t">Random Forest</div><div class="d">A junta médica: cada árvore é pior sozinha, a média acerta mais.</div></div>
+      <div class="box k1"><div class="n">o mais barato</div><div class="t">Naive Bayes</div><div class="d">O modelo inteiro cabe em 34 números. E ainda assim funciona.</div></div>
+      <div class="box k2"><div class="n">sem gabarito</div><div class="t">K-Means</div><div class="d">Regimes de operação que ninguém rotulou. Aqui não existe resposta certa.</div></div>
+      <div class="box k3"><div class="n">o que anda junto</div><div class="t">Regras de Associação</div><div class="d">Apriori e FP-Growth: que falhas aparecem sempre na mesma ordem de serviço.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 08 · AS CINCO ETAPAS ============ -->
+<section class="slide">
+  <div class="flush">
+    <div class="eyebrow k3">o método, e ele não muda</div>
+    <h2 class="title">Toda aula percorre<br>o mesmo caminho.</h2>
+    <p class="lede">Não são cinco assuntos: são cinco perguntas que você aprende a fazer na ordem — e a pergunta de desempate é sempre <span class="hl">"a etapa anterior está mesmo pronta?"</span></p>
+    <div class="pipe" style="margin-top:3vh">
+      <div class="step"><div class="sn">01 · PREPARAR</div><div class="st">A base chega suja. Sensor mudo, sensor descalibrado, vibração negativa. Limpar e <b style="color:#E8EEF4">registrar o que saiu</b>.</div></div>
+      <div class="step"><div class="sn">02 · TREINAR</div><div class="st">Três linhas de scikit-learn. É a parte mais curta da aula — e é de propósito.</div></div>
+      <div class="step nw"><div class="sn">03 · TRADUZIR</div><div class="st">O modelo responde em log-odds, em Gini, em distância. <b style="color:#E8EEF4">Alguém tem que traduzir</b> para português de fábrica.</div></div>
+      <div class="step"><div class="sn">04 · AVALIAR</div><div class="st">Matriz de confusão antes de qualquer nota. Depois recall, precisão, especificidade, ROC e AUC.</div></div>
+      <div class="step"><div class="sn">05 · DECIDIR</div><div class="st">O custo dos dois erros, o limiar em reais, a recomendação — e o que você <b style="color:#E8EEF4">não</b> vai escrever no relatório.</div></div>
+    </div>
+    <div class="note frame ok" style="max-width:80ch">
+      <div class="nl">o que a ferramenta faz × o que você faz</div>
+      <div class="nb">A biblioteca calcula média, desvio e ordenação. <b>Você</b> acha a leitura impossível, descobre o preço dos dois erros, escolhe o limiar, percebe que o número não é uma probabilidade honesta — e assina embaixo.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 09 · A BANCADA TRIPLA ============ -->
+<section class="slide">
+  <div class="cols r">
+    <div class="flush">
+      <div class="eyebrow k1">como se aprende aqui</div>
+      <h2 class="title sm">Você faz a conta<br>à mão <span class="spectral-text">antes</span> de chamar a função.</h2>
+      <p class="lede">Todo algoritmo aparece três vezes: no slide como ideia, na <span class="hl">planilha célula por célula</span>, e no Python em escala. E a última aba da planilha confere com o scikit-learn.</p>
+      <ul class="rules" style="margin-top:1.6vh">
+        <li><span class="k">O slide</span> mostra o mecanismo — a jarra de bolinhas, a curva em S, o vai-e-vem dos centróides.</li>
+        <li class="b2"><span class="k">A planilha</span> te faz calcular o Gini, o z-score e o logit na mão, com fórmula visível.</li>
+        <li class="b3"><span class="k">O Python</span> faz o mesmo em 1.500 turnos — e os dois caminhos <b>têm que bater</b>.</li>
+      </ul>
+    </div>
+    <div class="flush">
+      <div class="window">
+        <div class="bar"><i style="background:#E2725B"></i><i style="background:#F4ED45"></i><i style="background:#56C877"></i><span class="t">Confere-Python · aba 8</span></div>
+        <div class="body">
+          <div class="code">
+<span class="cm"># a planilha disse:</span><br>
+z = <span class="nu">-4,4144</span> + <span class="nu">0,9784</span>·vibração<br>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="nu">0,0023</span>·horas + <span class="nu">0,6414</span>·noite<br>
+p = <span class="nu">0,5656</span><br><br>
+<span class="cm"># o scikit-learn diz:</span><br>
+<span class="kw">print</span>(modelo.<span class="fn">predict_proba</span>(nova))<br>
+<span class="st">&gt;&gt;&gt; 0.5655</span><br><br>
+<span class="cm"># bate? bate.</span>
+          </div>
+        </div>
+      </div>
+      <div class="note frame" style="margin-top:2vh">
+        <div class="nl">por que isso importa</div>
+        <div class="nb">Quem só aprende <code style="font-family:var(--mono);color:#B5DC4A">.fit()</code> não sabe defender o resultado numa reunião. <b>Aqui você sabe de onde saiu cada número.</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 · O MESMO MODELO, DOIS FORNECEDORES ============ -->
+<section class="slide">
+  <div class="flush">
+    <div class="eyebrow money">o nível de sofisticação que vocês vão atingir</div>
+    <h2 class="title sm">O mesmo modelo. O mesmo limiar.<br>E ele funciona para <span class="spectral-text">um fornecedor só</span>.</h2>
+    <p class="lede">Modelo de retrabalho na cabine de pintura. Olhando o número global, parece uniforme. Separando por fornecedor de tinta, aparece isto:</p>
+    <div class="boxes q2" style="margin-top:2.6vh">
+      <div class="box k2">
+        <div class="n">fornecedor A · 66 lotes</div>
+        <div class="t" style="color:var(--v4)">R$ 29.000 economizados</div>
+        <div class="d">recall <b style="color:#E8EEF4">0,850</b> · precisão <b style="color:#E8EEF4">0,447</b> — de cada dois alarmes, um estava certo.</div>
+      </div>
+      <div class="box k3">
+        <div class="n">fornecedor B · 56 lotes</div>
+        <div class="t" style="color:var(--v6)">R$ 2.000 economizados</div>
+        <div class="d">recall <b style="color:#E8EEF4">0,857</b> · precisão <b style="color:#E8EEF4">0,176</b> — quase o dobro de alarme falso, pelo mesmo trabalho.</div>
+      </div>
+    </div>
+    <div class="note frame warn" style="max-width:80ch">
+      <div class="nl">a lição</div>
+      <div class="nb">O recall é <b>praticamente igual</b> nos dois (0,850 e 0,857). Quem parar na primeira métrica implanta para a fábrica inteira e descobre o problema em produção. <b>A recomendação honesta é implantar só para A</b> — e escrever por quê.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 11 · O ENTREGÁVEL ============ -->
+<section class="slide">
+  <div class="cols l">
+    <div class="flush">
+      <div class="eyebrow k2">o que se entrega no fim</div>
+      <h2 class="title sm">Uma página.<br>Cinco minutos.<br>Zero sigla.</h2>
+      <p class="lede">O trabalho final de cada unidade não é um notebook. É uma <span class="hl">página escrita para um gerente de produção</span> que não estudou estatística e precisa decidir, não aprender.</p>
+      <div class="note frame warn" style="max-width:52ch">
+        <div class="nl">regra dura da rubrica</div>
+        <div class="nb">Nenhuma métrica adimensional entra nessa página. <b>Nada de AUC, F1 ou silhueta.</b> Tudo em peças, lotes, turnos, minutos e reais. AUC e matriz de confusão vão no anexo técnico.</div>
+      </div>
+    </div>
+    <div class="flush">
+      <div class="window" style="max-width:520px">
+        <div class="bar"><i style="background:#E2725B"></i><i style="background:#F4ED45"></i><i style="background:#56C877"></i><span class="t">ficha de entrega · uma página</span></div>
+        <div class="body">
+          <ul class="rules" style="margin-top:0">
+            <li><span class="k">1 · A pergunta</span> — que decisão isto responde, e quem toma.</li>
+            <li><span class="k">2 · O que custa hoje</span> — sem modelo nenhum, no período da base.</li>
+            <li class="b2"><span class="k">3 · O que o modelo faz</span> — quantas falhas pega a tempo, quantos alarmes falsos gera.</li>
+            <li class="b2"><span class="k">4 · Quanto passa a custar</span> — o novo número em reais, e a economia.</li>
+            <li class="b3"><span class="k">5 · A recomendação</span> — implantar · com ressalva · não implantar.</li>
+            <li class="bad"><span class="k">6 · Os limites</span> — o que o modelo não sabe, e quando revalidar.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 12 · O MODELO ENVELHECE ============ -->
+<section class="slide">
+  <div class="cols r">
+    <div class="flush">
+      <div class="eyebrow k4">e a última coisa que quase ninguém ensina</div>
+      <h2 class="title sm">Um modelo entregue<br>não é um modelo pronto.</h2>
+      <p class="lede">A fábrica muda, e o modelo <span class="hl">não fica sabendo</span>. Seis meses depois ele continua respondendo com a confiança de sempre — e errado.</p>
+      <div class="note frame violet" style="max-width:56ch">
+        <div class="nl">o que monitorar depois de implantar</div>
+        <div class="nb">A distribuição de cada sensor, o <b>recall do mês corrente</b> contra o do teste, e a taxa de alarmes por turno. Revalidação combinada com a manutenção — mensal, ou a cada troca de componente, o que vier primeiro.</div>
+      </div>
+    </div>
+    <div class="viz">
+      <svg viewBox="0 0 440 320" role="img" aria-label="Data drift e concept drift: o sensor muda de faixa e a relação entre vibração e falha muda">
+        <g class="fade">
+          <rect x="16" y="26" width="196" height="120" rx="7" fill="rgba(79,134,198,.10)" stroke="rgba(79,134,198,.45)"/>
+          <text x="32" y="50" fill="#4F86C6" font-size="10.5" font-family="JetBrains Mono" letter-spacing="1.6">DATA DRIFT</text>
+          <path d="M 34 118 C 60 74, 84 74, 108 118" fill="none" stroke="#4F86C6" stroke-width="2"/>
+          <path d="M 104 118 C 130 88, 158 88, 190 118" fill="none" stroke="#4F86C6" stroke-width="2" stroke-dasharray="4 3" opacity=".65"/>
+          <line x1="30" y1="118" x2="198" y2="118" stroke="rgba(143,164,183,.35)"/>
+          <text x="114" y="138" fill="#93A4B7" font-size="10" font-family="Inter" text-anchor="middle">trocaram o mancal: a vibração caiu</text>
+        </g>
+        <g class="fade2">
+          <rect x="228" y="26" width="196" height="120" rx="7" fill="rgba(145,104,214,.10)" stroke="rgba(145,104,214,.45)"/>
+          <text x="244" y="50" fill="#9168D6" font-size="10.5" font-family="JetBrains Mono" letter-spacing="1.6">CONCEPT DRIFT</text>
+          <path d="M 246 116 L 320 74" stroke="#9168D6" stroke-width="2" fill="none"/>
+          <path d="M 246 100 L 320 98" stroke="#9168D6" stroke-width="2" fill="none" stroke-dasharray="4 3" opacity=".65"/>
+          <line x1="242" y1="118" x2="410" y2="118" stroke="rgba(143,164,183,.35)"/>
+          <text x="326" y="138" fill="#93A4B7" font-size="10" font-family="Inter" text-anchor="middle">lubrificante novo: vibração alta já não indica falha</text>
+        </g>
+        <g class="fade3">
+          <rect x="16" y="170" width="408" height="132" rx="7" fill="rgba(20,28,38,.7)" stroke="rgba(143,164,183,.2)"/>
+          <text x="34" y="196" fill="#F4ED45" font-size="10.5" font-family="JetBrains Mono" letter-spacing="1.6">O PAINEL DE DIAGNÓSTICO QUE VOCÊ LEVA</text>
+          <text x="34" y="222" fill="#D2DAE2" font-size="12" font-family="Inter">Treino ≫ teste  →  overfitting  →  aperte o freio</text>
+          <text x="34" y="244" fill="#D2DAE2" font-size="12" font-family="Inter">Acurácia alta, recall péssimo  →  classe rara  →  mova o limiar</text>
+          <text x="34" y="266" fill="#D2DAE2" font-size="12" font-family="Inter">Uma variável domina tudo  →  vazamento  →  ela existia na hora?</text>
+          <text x="34" y="288" fill="#D2DAE2" font-size="12" font-family="Inter">Piorou depois de meses  →  drift  →  revalide e retreine</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 13 · BIBLIOGRAFIA · ABERTURA ============ -->
+<section class="slide">
+  <div class="flush">
+    <div class="eyebrow k4">a estante da disciplina</div>
+    <h2 class="title">Seis livros.<br>Dois são <span class="spectral-text">de graça</span>.</h2>
+    <p class="lede">Nenhum é obrigatório da capa à contracapa — igual ao que combinamos em Fundamentos. Cada um resolve <span class="hl">um tipo de dúvida</span>, e saber a qual recorrer já é metade do trabalho.</p>
+    <!-- Para trocar por fotos reais das capas: substitua o bloco .capa por
+         <div class="capa"><img src="data:image/jpeg;base64,..." alt="..."></div> -->
+    <div class="shelf" style="margin-top:3.2vh">
+      <div class="capa">
+        <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><circle cx="26" cy="106" r="15" fill="none" stroke="#2FB89A" stroke-width="1.5" opacity=".8"/><circle cx="50" cy="106" r="15" fill="none" stroke="#B5DC4A" stroke-width="1.5" opacity=".8"/><circle cx="74" cy="106" r="15" fill="none" stroke="#F4ED45" stroke-width="1.5" opacity=".8"/></svg>
+        <div class="ct">Mãos à Obra:<br>Aprendizado de Máquina</div>
+        <div class="ca">GÉRON<br>Alta Books · 3ª ed.</div>
+        <div class="ced" style="background:#2FB89A"></div>
+      </div>
+      <div class="capa">
+        <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><path d="M14 118 L34 92 L54 104 L86 66" fill="none" stroke="#4F86C6" stroke-width="2"/><circle cx="86" cy="66" r="4" fill="#4F86C6"/></svg>
+        <div class="ct">Introduction to<br>Machine Learning<br>with Python</div>
+        <div class="ca">MÜLLER · GUIDO<br>O'Reilly</div>
+        <div class="ced" style="background:#4F86C6"></div>
+      </div>
+      <div class="capa">
+        <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><rect x="16" y="86" width="20" height="34" fill="#9168D6" opacity=".75"/><rect x="42" y="70" width="20" height="50" fill="#9168D6" opacity=".55"/><rect x="68" y="98" width="20" height="22" fill="#9168D6" opacity=".9"/></svg>
+        <div class="ct">Applied<br>Predictive<br>Modeling</div>
+        <div class="ca">KUHN · JOHNSON<br>Springer</div>
+        <div class="ced" style="background:#9168D6"></div>
+      </div>
+      <div class="capa">
+        <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><path d="M50 66 L50 120 M50 88 L28 110 M50 88 L74 110" stroke="#B5DC4A" stroke-width="2" fill="none"/><circle cx="50" cy="66" r="4" fill="#B5DC4A"/><circle cx="28" cy="110" r="4" fill="#B5DC4A"/><circle cx="74" cy="110" r="4" fill="#B5DC4A"/></svg>
+        <div class="ct">Interpretable<br>Machine Learning</div>
+        <div class="ca">MOLNAR<br>3ª ed. · online</div>
+        <div class="ced" style="background:#B5DC4A"></div>
+      </div>
+      <div class="capa">
+        <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><path d="M14 118 C 40 118, 46 74, 86 74" fill="none" stroke="#56C877" stroke-width="2"/><line x1="14" y1="122" x2="88" y2="122" stroke="rgba(143,164,183,.4)"/></svg>
+        <div class="ct">An Introduction to<br>Statistical Learning<br><span style="font-size:.72em;color:#93A4B7">with Python</span></div>
+        <div class="ca">JAMES · WITTEN<br>HASTIE · TIBSHIRANI</div>
+        <div class="ced" style="background:#56C877"></div>
+      </div>
+      <div class="capa">
+        <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><rect x="18" y="72" width="64" height="46" fill="none" stroke="#F4ED45" stroke-width="1.5"/><line x1="18" y1="88" x2="82" y2="88" stroke="#F4ED45" stroke-width="1.2"/><line x1="40" y1="72" x2="40" y2="118" stroke="#F4ED45" stroke-width="1.2"/></svg>
+        <div class="ct">Manual de<br>Análise de Dados</div>
+        <div class="ca">FÁVERO · BELFIORE<br>LTC</div>
+        <div class="ced" style="background:#F4ED45"></div>
+      </div>
+    </div>
+    <div class="bridge" style="justify-content:center;margin-top:2.4vh">
+      <span><b>2</b> já estão no plano de curso</span>
+      <span><b>2</b> são gratuitos e legais</span>
+      <span><b>1</b> vocês já vão ter de Fundamentos</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 14 · LIVRO 1 ============ -->
+<section class="slide">
+  <div class="cols book">
+    <div class="capa big">
+      <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><circle cx="26" cy="106" r="15" fill="none" stroke="#2FB89A" stroke-width="1.5" opacity=".8"/><circle cx="50" cy="106" r="15" fill="none" stroke="#B5DC4A" stroke-width="1.5" opacity=".8"/><circle cx="74" cy="106" r="15" fill="none" stroke="#F4ED45" stroke-width="1.5" opacity=".8"/></svg>
+      <div class="ct">Mãos à Obra:<br>Aprendizado de Máquina<br>com Scikit-Learn,<br>Keras &amp; TensorFlow</div>
+      <div class="ca">AURÉLIEN GÉRON<br>Alta Books · 3ª edição</div>
+      <div class="ced" style="background:#2FB89A"></div>
+    </div>
+    <div class="flush">
+      <div class="booktag">referência 01 · para fazer</div>
+      <h3 class="booktitle">Mãos à Obra: Aprendizado de Máquina com Scikit-Learn, Keras &amp; TensorFlow</h3>
+      <div class="bookauthor">Aurélien Géron — trad. Eveline Machado · Alta Books, 3ª ed., 2025</div>
+      <p class="bookwhy">O livro de bancada da disciplina, e o único que já está no plano de curso oficial. Géron não explica teoria e depois mostra código: ele <b style="color:#E8EEF4">resolve o problema com você</b>, linha a linha. Use quando a dúvida for <span class="q">"como eu faço isso em Python?"</span>.</p>
+      <div class="note frame ok" style="max-width:44ch">
+        <div class="nl">o capítulo que vale a compra</div>
+        <div class="nb">O projeto de ponta a ponta do capítulo 2 — do CSV bruto ao modelo avaliado. É literalmente o esqueleto que a nossa disciplina inteira segue.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 15 · LIVRO 2 ============ -->
+<section class="slide">
+  <div class="cols book">
+    <div class="capa big">
+      <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><path d="M14 118 L34 92 L54 104 L86 66" fill="none" stroke="#4F86C6" stroke-width="2"/><circle cx="86" cy="66" r="4" fill="#4F86C6"/></svg>
+      <div class="ct">Introduction to<br>Machine Learning<br>with Python</div>
+      <div class="ca">MÜLLER · GUIDO<br>O'Reilly Media</div>
+      <div class="ced" style="background:#4F86C6"></div>
+    </div>
+    <div class="flush">
+      <div class="booktag">referência 02 · o scikit-learn por dentro</div>
+      <h3 class="booktitle">Introduction to Machine Learning with Python</h3>
+      <div class="bookauthor">Andreas C. Müller · Sarah Guido — O'Reilly Media</div>
+      <p class="bookwhy">Também já está no plano de curso — e tem uma credencial que nenhum outro tem: <b style="color:#E8EEF4">Andreas Müller foi um dos mantenedores do próprio scikit-learn</b>. Quando ele explica por que um parâmetro existe, é porque ele estava na sala quando aquilo foi decidido.</p>
+      <div class="note frame violet" style="max-width:44ch">
+        <div class="nl">use quando a dúvida for</div>
+        <div class="nb"><span class="q" style="color:#B5DC4A">"por que o sklearn se comporta assim?"</span> — pré-processamento, pipelines e avaliação, que é exatamente onde a gente mais erra.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 16 · LIVRO 3 ============ -->
+<section class="slide">
+  <div class="cols book">
+    <div class="capa big">
+      <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><rect x="16" y="86" width="20" height="34" fill="#9168D6" opacity=".75"/><rect x="42" y="70" width="20" height="50" fill="#9168D6" opacity=".55"/><rect x="68" y="98" width="20" height="22" fill="#9168D6" opacity=".9"/></svg>
+      <div class="ct">Applied<br>Predictive<br>Modeling</div>
+      <div class="ca">KUHN · JOHNSON<br>Springer, 2013</div>
+      <div class="ced" style="background:#9168D6"></div>
+    </div>
+    <div class="flush">
+      <div class="booktag">referência 03 · o dado sujo como assunto</div>
+      <h3 class="booktitle">Applied Predictive Modeling</h3>
+      <div class="bookauthor">Max Kuhn · Kjell Johnson — Springer, 2013 · ISBN 978-1-4614-6849-3</div>
+      <p class="bookwhy">O terceiro do plano de curso, e o mais adulto dos três. Quase todo livro de ML trata o dado limpo como ponto de partida. Este trata a <b style="color:#E8EEF4">sujeira, o desbalanceamento e o custo do erro como o assunto principal</b> — que é a realidade de qualquer base de sensor de fábrica.</p>
+      <div class="note frame" style="max-width:44ch">
+        <div class="nl">o capítulo que conversa com a nossa aula</div>
+        <div class="nb">"Remedies for Severe Class Imbalance": quando a falha é rara, a acurácia mente e o limiar precisa de argumento. É a aula 3 inteira.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 17 · LIVRO 4 ============ -->
+<section class="slide">
+  <div class="cols book">
+    <div class="capa big">
+      <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><path d="M50 66 L50 120 M50 88 L28 110 M50 88 L74 110" stroke="#B5DC4A" stroke-width="2" fill="none"/><circle cx="50" cy="66" r="4" fill="#B5DC4A"/><circle cx="28" cy="110" r="4" fill="#B5DC4A"/><circle cx="74" cy="110" r="4" fill="#B5DC4A"/></svg>
+      <div class="ct">Interpretable<br>Machine Learning</div>
+      <div class="ca">CHRISTOPH MOLNAR<br>3ª edição</div>
+      <div class="ced" style="background:#B5DC4A"></div>
+    </div>
+    <div class="flush">
+      <div class="booktag">referência 04 · explicar o modelo ao gestor</div>
+      <h3 class="booktitle">Interpretable Machine Learning</h3>
+      <div class="bookauthor">Christoph Molnar — 3ª edição · christophm.github.io/interpretable-ml-book</div>
+      <p class="bookwhy">Na aula de Random Forest a gente descobre que a importância de variável que o scikit-learn dá <b style="color:#E8EEF4">de graça</b> favorece colunas com muitos valores distintos — e chega a colocar uma coluna de <b style="color:#E8EEF4">puro ruído</b> em quinto lugar. A conta certa, por permutação, está aqui.</p>
+      <div class="freetag">gratuito e legal · online, do autor</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 18 · LIVRO 5 ============ -->
+<section class="slide">
+  <div class="cols book">
+    <div class="capa big">
+      <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><path d="M14 118 C 40 118, 46 74, 86 74" fill="none" stroke="#56C877" stroke-width="2"/><line x1="14" y1="122" x2="88" y2="122" stroke="rgba(143,164,183,.4)"/></svg>
+      <div class="ct">An Introduction to<br>Statistical Learning<br><span style="font-size:.72em;color:#93A4B7">with Applications in Python</span></div>
+      <div class="ca">JAMES · WITTEN<br>HASTIE · TIBSHIRANI</div>
+      <div class="ced" style="background:#56C877"></div>
+    </div>
+    <div class="flush">
+      <div class="booktag">referência 05 · o porquê por trás da conta</div>
+      <h3 class="booktitle">An Introduction to Statistical Learning, with Applications in Python</h3>
+      <div class="bookauthor">James · Witten · Hastie · Tibshirani — Springer · statlearning.com</div>
+      <p class="bookwhy">Quando você quiser saber <b style="color:#E8EEF4">por que</b> a regressão logística responde em log-odds, por que o k-fold é honesto e por que a árvore sem freio decora — é este. Escrito por gente que ajudou a inventar boa parte disso, e mesmo assim legível.</p>
+      <div class="freetag">gratuito e legal · pdf oficial em statlearning.com</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 19 · LIVRO 6 ============ -->
+<section class="slide">
+  <div class="cols book">
+    <div class="capa big">
+      <svg class="cmark" viewBox="0 0 100 150" aria-hidden="true"><rect x="18" y="72" width="64" height="46" fill="none" stroke="#F4ED45" stroke-width="1.5"/><line x1="18" y1="88" x2="82" y2="88" stroke="#F4ED45" stroke-width="1.2"/><line x1="40" y1="72" x2="40" y2="118" stroke="#F4ED45" stroke-width="1.2"/></svg>
+      <div class="ct">Manual de<br>Análise de Dados</div>
+      <div class="ca">FÁVERO · BELFIORE<br>LTC</div>
+      <div class="ced" style="background:#F4ED45"></div>
+    </div>
+    <div class="flush">
+      <div class="booktag">referência 06 · a ponte entre os dois cursos</div>
+      <h3 class="booktitle">Manual de Análise de Dados</h3>
+      <div class="bookauthor">Luiz Paulo Fávero · Patrícia Belfiore — LTC · Estatística e Machine Learning com Excel, SPSS, Stata, R e Python</div>
+      <p class="bookwhy">Este vocês já vão ter — é o apoio de bancada de <b style="color:#E8EEF4">Fundamentos</b>. A graça é que o mesmo livro continua servindo: os capítulos de estatística que a gente usa agora vêm antes dos capítulos de machine learning que a gente vai usar depois. <b style="color:#E8EEF4">Um livro só, atravessando os dois cursos.</b></p>
+      <div class="note frame ok" style="max-width:44ch">
+        <div class="nl">em português, e isso conta</div>
+        <div class="nb">É a referência mais completa em português para quem vai aplicar — e não só ler sobre.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 20 · FECHO ============ -->
+<section class="slide">
+  <div class="cols r">
+    <div class="flush">
+      <div class="eyebrow money">o convite</div>
+      <h2 class="title xl">O modelo não decide.<br><span class="spectral-text">Quem assina, decide.</span></h2>
+      <p class="lede">Machine Learning Aplicada à Indústria é sobre a pessoa que olha o número, entende de onde ele veio, <span class="hl">calcula quanto custa errar</span> — e assume a decisão.</p>
+      <p class="lede">Essa pessoa começa a existir <span class="hl">aqui</span>, nesta disciplina. Terminem Fundamentos bem, e o degrau seguinte já está montado esperando vocês.</p>
+      <div class="bridge" style="margin-top:2.6vh">
+        <span><b>pré-requisito</b> este curso, concluído</span>
+        <span><b>carga</b> 60 horas</span>
+        <span><b>turmas</b> máx. 20 alunos</span>
+      </div>
+    </div>
+    <div class="flush">
+      <div class="statrow" style="grid-template-columns:1fr 1fr">
+        <div class="stat tone-good"><div class="sv">7</div><div class="sl">algoritmos, do zero</div></div>
+        <div class="stat tone-cool"><div class="sv">20</div><div class="sl">bases industriais</div></div>
+      </div>
+      <div class="statrow" style="grid-template-columns:1fr 1fr;margin-top:3vh">
+        <div class="stat tone-bad"><div class="sv">18</div><div class="sl">problemas ponta a ponta</div></div>
+        <div class="stat tone-risk"><div class="sv">R$</div><div class="sl">toda decisão, em reais</div></div>
+      </div>
+      <div class="note frame warn" style="margin-top:3vh">
+        <div class="nl">para a próxima aula</div>
+        <div class="nb">Traga o notebook, o código da turma anotado — e a pergunta que você sempre quis fazer aos dados do seu trabalho. <b>Ela provavelmente vira um exercício.</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<button class="nav" id="pv" aria-label="Slide anterior">‹</button>
+<button class="nav" id="nx" aria-label="Próximo slide">›</button>
+<div class="brand">SENAI-SP · MACHINE LEARNING APLICADA À INDÚSTRIA</div>
+<div class="hint">← → navegar</div>
+<div class="counter"><b id="cur">01</b> / <span id="tot">20</span></div>
+<div class="progress" id="prog"></div>
+
+<script>
+(function(){
+ const deck=document.getElementById('deck');
+ const slides=[...deck.querySelectorAll('.slide')];
+ let i=0; const tot=slides.length;
+ document.getElementById('tot').textContent=String(tot).padStart(2,'0');
+ const prog=document.getElementById('prog');
+ function show(n){
+  const target=Math.max(0,Math.min(tot-1,n));
+  const dir=target>=i?1:-1;
+  if(target!==i){
+   const out=slides[i];
+   out.style.setProperty('--dir',dir);
+   out.classList.remove('active'); out.classList.add('leaving');
+   setTimeout(()=>out.classList.remove('leaving'),440);
+  }
+  i=target;
+  const inc=slides[i];
+  inc.style.setProperty('--dir',dir);
+  inc.classList.add('active');
+  document.getElementById('cur').textContent=String(i+1).padStart(2,'0');
+  prog.style.width=((i+1)/tot*100)+'%';
+ }
+ document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(i+1);}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(i-1);}
+  else if(e.key==='Home'){show(0);} else if(e.key==='End'){show(tot-1);}
+ });
+ document.getElementById('nx').addEventListener('click',e=>{e.stopPropagation();show(i+1);});
+ document.getElementById('pv').addEventListener('click',e=>{e.stopPropagation();show(i-1);});
+ deck.addEventListener('click',e=>{show(e.clientX/window.innerWidth<0.32?i-1:i+1);});
+ let tx=0;
+ deck.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
+ deck.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>40)show(dx<0?i+1:i-1);});
+ show(0);
+})();
+</script>
+</body></html>
