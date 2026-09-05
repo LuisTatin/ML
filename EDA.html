@@ -1,0 +1,965 @@
+<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pré-processamento e EDA na Manutenção Preditiva · SENAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#222D3B; --bg2:#1B2531; --bg3:#273343;
+ --ink:#E8EEF4; --muted:#93A4B7; --faint:#5E7186;
+ --line:rgba(143,164,183,.12); --bru:rgba(143,164,183,.55);
+ --v1:#9168D6; --v2:#4F86C6; --v3:#2FB89A; --v4:#56C877; --v5:#B5DC4A; --v6:#F4ED45;
+ --c1:#4F86C6; --c2:#B5DC4A; --c3:#9168D6;
+ --good:#56C877; --bad:#F4ED45;
+ --serif:'Lora',Georgia,serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+ --spectral:linear-gradient(90deg,var(--v1),var(--v2),var(--v3),var(--v4),var(--v5),var(--v6));
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{font-family:var(--body);color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased;background:var(--bg)}
+.deck{position:fixed;inset:0;background:
+  linear-gradient(rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  linear-gradient(90deg,rgba(143,164,183,.04) 1px,transparent 1px) 0 0/34px 34px,
+  radial-gradient(1100px 700px at 80% 8%, rgba(47,184,154,.06), transparent 60%),
+  radial-gradient(900px 650px at 10% 92%, rgba(145,104,214,.06), transparent 60%),
+  linear-gradient(160deg,var(--bg),var(--bg2))}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:6vh 6.5vw 7vh;opacity:0;transition:opacity .5s}
+.slide.active{display:flex;opacity:1}
+.frame{position:relative;--c:var(--bru);background:
+  linear-gradient(var(--c),var(--c)) 0 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 0/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 0/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 0 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 0 100%/2px 18px no-repeat,
+  linear-gradient(var(--c),var(--c)) 100% 100%/18px 2px no-repeat,linear-gradient(var(--c),var(--c)) 100% 100%/2px 18px no-repeat}
+.eyebrow{font-family:var(--mono);font-size:clamp(11px,1.05vw,13px);letter-spacing:3px;text-transform:uppercase;color:var(--v3);display:flex;align-items:center;gap:12px;margin-bottom:2.4vh}
+.eyebrow::before{content:"";width:30px;height:2px;background:var(--spectral)}
+.eyebrow.amber{color:var(--v5)} .eyebrow.violet{color:var(--v1)}
+.title{font-family:var(--serif);font-weight:600;font-size:clamp(28px,4.3vw,54px);line-height:1.05;letter-spacing:-.5px}
+.title.mono{font-family:var(--mono);font-weight:500;letter-spacing:-1px;font-size:clamp(26px,3.8vw,48px)}
+.spectral-text{background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{font-size:clamp(15px,1.65vw,20px);color:var(--muted);max-width:48ch;line-height:1.55;margin-top:2vh}
+.lede .hl{color:var(--ink);font-weight:500}
+.cap{font-family:var(--mono);font-size:clamp(11.5px,1.1vw,13.5px);color:var(--muted);line-height:1.5}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:clamp(26px,3.6vw,58px);align-items:center;flex:1;min-height:0}
+.cols.r{grid-template-columns:1.08fr .92fr}.cols.l{grid-template-columns:.92fr 1.08fr}
+.flush{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+.viz{width:100%;display:flex;align-items:center;justify-content:center;min-height:0}
+.viz svg{width:100%;height:auto;max-height:74vh;display:block;overflow:visible}
+.note{padding:15px 18px;margin-top:14px}
+.note .nl{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;color:var(--v3)}
+.note .nb{font-size:14px;color:#D6DEE7;line-height:1.5}
+.note.warn .nl{color:var(--v6)} .note.ok .nl{color:var(--v4)} .note.violet .nl{color:var(--v1)}
+.rules{list-style:none;margin-top:6px}
+.rules li{position:relative;padding-left:20px;margin-bottom:11px;font-size:clamp(13.5px,1.35vw,16.5px);color:#D2DAE2;max-width:44ch;line-height:1.45}
+.rules li::before{content:"";position:absolute;left:0;top:8px;width:8px;height:8px;border-radius:2px;background:var(--v3)}
+.rules li.b2::before{background:var(--v5)}.rules li.b3::before{background:var(--v1)}.rules li.bad::before{background:var(--v6)}
+.rules li .k{color:var(--ink);font-weight:600}
+.eqimg{display:block;max-width:100%;max-height:84px;height:auto;width:auto;margin:12px 0}
+.eqbox{padding:18px 22px;margin:12px 0;display:inline-block}
+/* three boxes */
+.boxes{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%}
+.box{padding:24px 22px;border-radius:6px;background:rgba(20,28,38,.55)}
+.box .n{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}
+.box .t{font-family:var(--serif);font-weight:600;font-size:clamp(19px,1.9vw,24px);margin-bottom:9px}
+.box .d{font-size:14px;color:var(--muted);line-height:1.5}
+.box.k1{border-top:2px solid var(--c1)}.box.k1 .n{color:var(--c1)}
+.box.k2{border-top:2px solid var(--c2)}.box.k2 .n{color:var(--c2)}
+.box.k3{border-top:2px solid var(--c3)}.box.k3 .n{color:var(--c3)}
+/* equation dissection */
+.eqd{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;font-family:var(--serif);font-size:clamp(40px,6vw,82px);font-weight:600}
+.eqd .term{padding:6px 16px;border-radius:8px;position:relative}
+.eqd .op{color:var(--muted);font-size:.8em}
+.eqd .sub{font-size:.5em;vertical-align:sub}
+/* glm tree / pipeline / table */
+.tree{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;width:100%}
+.tcol{display:flex;flex-direction:column;gap:10px}
+.tnode{padding:13px 12px;border-radius:6px;text-align:center;background:rgba(20,28,38,.5);font-size:13.5px;line-height:1.3}
+.tnode.head{font-family:var(--mono);font-size:12px;letter-spacing:1px;text-transform:uppercase}
+.tnode .ex{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:4px;display:block}
+.itable{display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:0;width:100%;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.itable .h{font-family:var(--mono);font-size:12px;letter-spacing:1px;text-transform:uppercase;padding:14px 16px;color:var(--ink);background:rgba(20,28,38,.7);border-bottom:1px solid var(--line)}
+.itable .c{padding:13px 16px;font-size:13.5px;color:#D2DAE2;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.itable .cause{font-family:var(--serif);font-weight:600;color:#0F1620;background:var(--spectral);justify-content:center;text-align:center}
+.pipe{display:flex;flex-wrap:wrap;gap:11px;width:100%}
+.step{flex:1 1 0;min-width:118px;padding:13px 13px 15px;border-radius:6px;background:rgba(20,28,38,.55);border-left:3px solid var(--v3)}
+.step .sn{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--v3);margin-bottom:5px}
+.step .st{font-size:13.5px;color:#D2DAE2;line-height:1.3}
+/* exercise */
+.exhead{display:flex;align-items:center;gap:16px;margin-bottom:2.2vh}
+.stars{font-family:var(--mono);font-size:clamp(15px,1.7vw,21px);letter-spacing:3px;background:var(--spectral);-webkit-background-clip:text;background-clip:text;color:transparent}
+.exlabel{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.prompt{font-size:clamp(16px,1.85vw,23px);color:var(--ink);max-width:56ch;line-height:1.45;font-weight:500}
+.prompt .data{font-family:var(--mono);color:var(--v3)}
+.answer{margin-top:3vh;padding:20px 24px;max-width:62ch;display:none}
+.answer.show{display:block;animation:fade .4s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.answer .al{font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--good);margin-bottom:10px}
+.answer .ab{font-size:clamp(14px,1.5vw,17.5px);color:#DCE7E0;line-height:1.55}
+.answer .ab b{color:var(--v5)}
+.reveal{margin-top:2.4vh;font-family:var(--mono);font-size:12px;color:var(--faint)}.reveal b{color:var(--v3)}
+.counter{position:fixed;right:2.2vw;bottom:2.4vh;font-family:var(--mono);font-size:12px;color:var(--faint);z-index:30}.counter b{color:var(--v6)}
+.brand{position:fixed;left:6.5vw;bottom:2.4vh;font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:2px;z-index:30}
+.progress{position:fixed;left:0;bottom:0;height:2px;z-index:30;background:var(--spectral);transition:width .5s}
+.hint{position:fixed;right:2.2vw;top:2.4vh;font-family:var(--mono);font-size:11px;color:var(--faint);z-index:30}
+@media(max-width:860px){.cols,.cols.r,.cols.l,.boxes,.tree{grid-template-columns:1fr;gap:16px}.itable{grid-template-columns:1fr}}
+
+/* ============ ANIMAÇÕES ============ */
+@keyframes slideEnter{from{opacity:0;transform:translateX(calc(var(--dir,1)*48px))}to{opacity:1;transform:none}}
+@keyframes slideLeave{from{opacity:1;transform:none}to{opacity:0;transform:translateX(calc(var(--dir,1)*-48px)) scale(.99)}}
+@keyframes reveal{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes popIn{0%{transform:scale(0)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes growUp{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes drawln{to{stroke-dashoffset:0}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+
+.slide.active{animation:slideEnter .6s cubic-bezier(.22,.61,.36,1) both;z-index:2}
+.slide.leaving{display:flex!important;animation:slideLeave .42s ease both;z-index:1;pointer-events:none}
+
+.slide.active .eyebrow{animation:reveal .55s .02s both}
+.slide.active .title{animation:reveal .6s .12s both}
+.slide.active .lede{animation:reveal .6s .22s both}
+.slide.active .cap{animation:reveal .6s .5s both}
+.slide.active .eqd,.slide.active .eqbox,.slide.active .eqimg{animation:reveal .6s .3s both}
+.slide.active .exhead{animation:reveal .55s .1s both}
+.slide.active .prompt{animation:reveal .6s .22s both}
+.slide.active .reveal{animation:reveal .6s .5s both}
+.slide.active .frame.note,.slide.active .note{animation:reveal .65s .42s both}
+.slide.active .rules li{animation:reveal .5s both}
+.slide.active .rules li:nth-child(1){animation-delay:.3s}
+.slide.active .rules li:nth-child(2){animation-delay:.4s}
+.slide.active .rules li:nth-child(3){animation-delay:.5s}
+.slide.active .rules li:nth-child(4){animation-delay:.6s}
+.slide.active .boxes .box{animation:reveal .6s both}
+.slide.active .boxes .box:nth-child(1){animation-delay:.24s}
+.slide.active .boxes .box:nth-child(2){animation-delay:.36s}
+.slide.active .boxes .box:nth-child(3){animation-delay:.48s}
+.slide.active .boxes .box:nth-child(4){animation-delay:.6s}
+.slide.active .itable .h{animation:reveal .5s .2s both}
+.slide.active .itable .c{animation:fadein .7s .42s both}
+.slide.active .pipe .step{animation:reveal .5s both}
+.slide.active .pipe .step:nth-child(1){animation-delay:.22s}
+.slide.active .pipe .step:nth-child(2){animation-delay:.31s}
+.slide.active .pipe .step:nth-child(3){animation-delay:.40s}
+.slide.active .pipe .step:nth-child(4){animation-delay:.49s}
+.slide.active .pipe .step:nth-child(5){animation-delay:.58s}
+.slide.active .pipe .step:nth-child(6){animation-delay:.67s}
+.slide.active .pipe .step:nth-child(7){animation-delay:.76s}
+.slide.active .pipe .step:nth-child(8){animation-delay:.85s}
+.slide.active .viz{animation:reveal .65s .18s both}
+
+/* construção didática dentro dos SVGs */
+.slide.active .viz .draw{stroke-dasharray:1;stroke-dashoffset:1;animation:drawln 1s .45s ease forwards}
+.slide.active .viz .draw.d2{animation-delay:.95s}
+.slide.active .viz .draw.d3{animation-delay:1.35s}
+.slide.active .viz .pop{transform-box:fill-box;transform-origin:center;animation:popIn .5s both;animation-delay:calc(.5s + var(--i,0)*0.05s)}
+.slide.active .viz .grow{transform-box:fill-box;transform-origin:bottom;animation:growUp .7s .45s cubic-bezier(.22,.61,.36,1) both}
+.slide.active .viz .fade{animation:fadein .8s .5s both}
+.slide.active .viz .fade2{animation:fadein .8s 1.1s both}
+
+@media (prefers-reduced-motion: reduce){
+ .slide.active,.slide.leaving{animation:none!important}
+ .slide.active *{animation:none!important;opacity:1!important;transform:none!important;stroke-dashoffset:0!important}
+}
+
+</style>
+<style>
+.boxes.q{grid-template-columns:repeat(4,1fr);gap:14px}
+.boxes.q .box{padding:20px 17px}
+.boxes.q .box .t{font-size:clamp(17px,1.6vw,21px)}
+.boxes.q .box .d{font-size:13px}
+.box.k4{border-top:2px solid var(--v6)}.box.k4 .n{color:var(--v6)}
+.metr{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%}
+.mcard{padding:22px 20px;border-radius:6px;background:rgba(20,28,38,.55);border-top:2px solid var(--v3)}
+.mcard.b{border-top-color:var(--v5)}.mcard.c{border-top-color:var(--v1)}
+.mcard .mn{font-family:var(--mono);font-size:clamp(20px,2.3vw,28px);font-weight:600;color:var(--v3);margin-bottom:4px}
+.mcard.b .mn{color:var(--v5)}.mcard.c .mn{color:var(--v1)}
+.mcard .mu{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.mcard .md{font-size:13.5px;color:#D2DAE2;line-height:1.5}
+.mcard .mv{font-family:var(--mono);font-size:15px;color:var(--ink);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.pausa{align-items:center;justify-content:center;text-align:center}
+.pausa .big{font-family:var(--serif);font-size:clamp(38px,6.4vw,80px);font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%}
+.half{padding:20px 22px;border-radius:6px;background:rgba(20,28,38,.55)}
+.half .hh{font-family:var(--mono);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.half.bad .hh{color:var(--v6)} .half.good .hh{color:var(--v4)}
+.half .hb{font-size:14px;color:#D2DAE2;line-height:1.55}
+.half code{font-family:var(--mono);color:var(--v3);font-size:13px}
+.chk{list-style:none}
+.chk li{position:relative;padding-left:26px;margin-bottom:10px;font-size:clamp(13px,1.3vw,15.5px);color:#D2DAE2;line-height:1.45}
+.chk li::before{content:"";position:absolute;left:0;top:6px;width:13px;height:13px;border-radius:3px;border:1.5px solid var(--v3)}
+.chk li b{color:var(--ink)}
+.fx{display:flex;align-items:baseline;gap:12px;margin:5px 0}
+.fx .fl{font-family:var(--mono);font-size:11px;color:var(--faint);width:20px;flex:0 0 20px}
+.fx .fe{font-family:var(--mono);font-size:clamp(12.5px,1.25vw,15px);color:#E8EEF4}
+.fx.fr{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.fx.fr .fe{color:var(--v3);font-weight:600;font-size:clamp(14px,1.4vw,17px)}
+.fx.fr .fl{color:var(--v3)}
+.viz.sm.tall{max-height:34vh}
+.viz.sm.tall svg{max-height:34vh}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;width:100%}
+.col3{padding:22px 20px;border-radius:6px;background:rgba(20,28,38,.55)}
+.col3 .ch{font-family:var(--mono);font-size:12px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+.col3 .cs{font-size:12px;color:var(--faint);margin-bottom:14px;font-style:italic}
+.col3.a{border-top:2px solid var(--v2)}.col3.a .ch{color:var(--v2)}
+.col3.b{border-top:2px solid var(--v3)}.col3.b .ch{color:var(--v3)}
+.col3.c{border-top:2px solid var(--v5)}.col3.c .ch{color:var(--v5)}
+.col3 ul{list-style:none}
+.col3 li{position:relative;padding-left:16px;margin-bottom:9px;font-size:13.5px;color:#D2DAE2;line-height:1.4}
+.col3 li::before{content:"";position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5}
+.col3 li b{color:var(--ink)}
+.itable.diag{grid-template-columns:1.2fr .8fr 1fr 1.1fr}
+.itable.diag .cause{border-bottom:2px solid var(--bg);font-size:15px}
+.itable .c{flex-direction:column;align-items:flex-start;justify-content:center;gap:3px}
+.itable .cause{align-items:center;justify-content:center}
+.viz.sm{max-height:30vh;flex:0 0 auto}
+.viz.sm svg{max-height:30vh;width:100%;height:auto}
+.flush > .eqbox{align-self:flex-start}
+.flush > .note{align-self:stretch}
+
+.eyebrow.blue{color:var(--v2)}
+@keyframes growRt{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.slide.active .viz .growx{transform-box:fill-box;transform-origin:left;animation:growRt .7s .4s cubic-bezier(.22,.61,.36,1) both}
+.itable.diag .cause{padding:11px 16px;font-family:var(--mono);font-weight:600;letter-spacing:2px;font-size:12px;text-transform:uppercase}
+.itable.diag .c{font-size:12.8px;padding:11px 14px}
+.itable.diag .h{padding:11px 14px;font-size:11px}
+.two .half.bad[style]{background:rgba(20,28,38,.55)}
+.slide.ex .prompt i{color:var(--muted)}
+.chk li{margin-bottom:8px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<linearGradient id="gsp" gradientUnits="userSpaceOnUse" x1="0" y1="440" x2="560" y2="0">
+ <stop offset="0" stop-color="#9168D6"/><stop offset=".2" stop-color="#4F86C6"/><stop offset=".4" stop-color="#2FB89A"/>
+ <stop offset=".6" stop-color="#56C877"/><stop offset=".8" stop-color="#B5DC4A"/><stop offset="1" stop-color="#F4ED45"/>
+</linearGradient>
+<filter id="g1" x="-50%" y="-50%" width="200%" height="200%">
+ <feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+ <feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs></svg>
+<div class="deck" id="deck">
+<section class="slide active"><div class="cols l">
+ <div>
+  <div class="eyebrow">machine learning aplicada à indústria · senai</div>
+  <h1 class="title">Pré-processamento<br>e <span class="spectral-text">análise exploratória</span></h1>
+  <p class="lede">A prensa parou. Antes de qualquer modelo, alguém precisa olhar o que o sensor realmente gravou — e decidir o que fazer com o que estiver errado.</p>
+  <div class="cap" style="margin-top:3vh">PERGUNTAR · OLHAR · CORRIGIR · TRADUZIR</div>
+ </div>
+ <div class="viz" data-viz="capa"></div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow">o problema real</div>
+  <h2 class="title">A prensa parou.<br>Quantos minutos o PCP reserva?</h2>
+  <p class="lede">Não é uma pergunta de estatística. É uma pergunta de <span class="hl">programação de produção</span>, e ela custa dinheiro dos dois lados.</p>
+  <div class="frame note warn"><div class="nl">o erro caro</div>
+   <div class="nb">Reservar demais deixa a linha parada à toa. Reservar de menos é pior: a linha volta, a máquina não está pronta, e o dia inteiro é reprogramado. <b>Subestimar custa quase o triplo.</b></div></div>
+ </div>
+ <div class="viz" data-viz="custo"></div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow">o mapa do caminho</div>
+ <h2 class="title" style="margin-bottom:2.5vh">Esta aula inteira mora dentro da primeira caixa</h2>
+ <div class="pipe" style="margin-bottom:2.6vh">
+  <div class="step"><div class="sn">1 · PREPARAR</div><div class="st">é aqui que estamos</div></div>
+  <div class="step" style="border-left-color:var(--faint);opacity:.5"><div class="sn" style="color:var(--faint)">2 · TREINAR</div><div class="st">próxima unidade</div></div>
+  <div class="step" style="border-left-color:var(--faint);opacity:.5"><div class="sn" style="color:var(--faint)">3 · AVALIAR</div><div class="st">próxima unidade</div></div>
+  <div class="step" style="border-left-color:var(--faint);opacity:.5"><div class="sn" style="color:var(--faint)">4 · DECIDIR</div><div class="st">próxima unidade</div></div>
+ </div>
+ <div class="boxes q">
+  <div class="box k3"><div class="n">01 · perguntar</div><div class="t">De onde veio</div><div class="d">a pergunta de negócio, a origem do dado, o que é uma feature</div></div>
+  <div class="box k1"><div class="n">02 · olhar</div><div class="t">O que existe</div><div class="d">info, describe, histograma, boxplot, dispersão, correlação</div></div>
+  <div class="box" style="border-top:2px solid var(--v3)"><div class="n" style="color:var(--v3)">03 · corrigir</div><div class="t">O que fazer</div><div class="d">ausentes, duplicatas, e a decisão mais difícil da aula</div></div>
+  <div class="box k2"><div class="n">04 · traduzir</div><div class="t">Como entregar</div><div class="d">escala, categóricas, e a coluna que ainda não existe</div></div>
+ </div>
+ <div class="frame note violet" style="margin-top:2.4vh"><div class="nl">a pergunta que resolve toda decisão desta aula</div>
+  <div class="nb" style="font-size:17px"><b>O que aconteceu na prensa para este dado ficar assim?</b></div></div>
+</div></section>
+
+<section class="slide"><div class="cols l">
+ <div>
+  <div class="eyebrow violet">01 · perguntar</div>
+  <h2 class="title">O CLP não foi feito para você</h2>
+  <p class="lede">O controlador grava para <span class="hl">controlar a máquina</span>, não para alimentar o seu modelo. Ele não sabe que existe um projeto de ML.</p>
+  <ul class="rules">
+   <li>A vibração sai com <span class="k">vírgula decimal</span>, porque o painel é em português</li>
+   <li>A mesma parada aparece <span class="k">duas vezes</span> quando atravessa a virada de turno</li>
+   <li>O turno é <span class="k">digitado à mão</span> pelo apontador, cada um do seu jeito</li>
+   <li class="bad">O sensor <span class="k">continua gravando</span> mesmo depois de descalibrar</li>
+  </ul>
+ </div>
+ <div>
+  <div class="frame eqbox" style="width:100%"><div class="cap" style="line-height:1.9">
+   id_os,data_hora,maquina,turno,horas_uso,<br>
+   pressao_bar,<span style="color:var(--v6)">vibracao_mm_s</span>,temp_mancal_c,<br>
+   severidade,tipo_falha,tempo_parada_min<br><br>
+   10125,11/03/2026 20:17,P-12,<span style="color:var(--v6)">tarde</span>,36673.0,<br>
+   9.37,<span style="color:var(--v6)">"7,83"</span>,<span style="color:var(--v6)">,</span>Alta,Elétrica,174.0
+  </div></div>
+  <div class="frame note"><div class="nl">três defeitos numa linha só</div>
+   <div class="nb">A vibração entre aspas e com vírgula. O turno em minúscula. E a temperatura simplesmente <b>não está lá</b>.</div></div>
+ </div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow violet">01 · perguntar</div>
+ <h2 class="title" style="margin-bottom:2.6vh">A ficha da parada</h2>
+ <div class="tree">
+  <div class="tcol"><div class="tnode head" style="color:var(--v1)">LINHA</div>
+   <div class="tnode">uma parada que já aconteceu<span class="ex">360 no arquivo</span></div></div>
+  <div class="tcol"><div class="tnode head" style="color:var(--v2)">COLUNA</div>
+   <div class="tnode">algo que já se sabia sobre ela<span class="ex">11 no arquivo</span></div></div>
+  <div class="tcol"><div class="tnode head" style="color:var(--v3)">FEATURE</div>
+   <div class="tnode">a coluna que o modelo pode usar para prever<span class="ex">nem toda coluna é uma</span></div></div>
+  <div class="tcol"><div class="tnode head" style="color:var(--v5)">ALVO</div>
+   <div class="tnode">o que você queria ter sabido ANTES<span class="ex">tempo_parada_min</span></div></div>
+ </div>
+ <div class="frame note warn" style="margin-top:2.6vh"><div class="nl">cuidado</div>
+  <div class="nb"><b>id_os é uma coluna e não é uma feature.</b> É o número da ordem de serviço — um identificador. Ele não causa nada. Guardem isso: ele vai voltar daqui a alguns slides fingindo que causa.</div></div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow blue">02 · olhar</div>
+ <h2 class="title" style="margin-bottom:1.2vh">Todo gráfico responde a uma pergunta</h2>
+ <p class="lede" style="margin-bottom:2.4vh;max-width:70ch">Se você não sabe qual, o gráfico é enfeite. Use sempre as mesmas três perguntas, na mesma ordem — como a ronda do manutentor.</p>
+ <div class="boxes">
+  <div class="box k1"><div class="n">1 · responde o quê</div><div class="t">Qual pergunta este gráfico responde?</div><div class="d">"como se distribui", "existe relação", "quem está fora do padrão"</div></div>
+  <div class="box" style="border-top:2px solid var(--v3)"><div class="n" style="color:var(--v3)">2 · procuro o quê</div><div class="t">O que eu procuro nele?</div><div class="d">a forma, a cauda, o ponto solto, o buraco, a curva que muda de inclinação</div></div>
+  <div class="box k2"><div class="n">3 · faço o quê</div><div class="t">O que eu faço com o que achei?</div><div class="d">investigar, corrigir, criar uma coluna nova — ou nada, conscientemente</div></div>
+ </div>
+ <div class="frame note ok" style="margin-top:2.6vh"><div class="nl">a regra</div>
+  <div class="nb">Gráfico que não termina numa das três respostas do quadro 3 <b>não precisava ter sido feito</b>.</div></div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow blue">02 · olhar</div>
+  <h2 class="title">A coluna mais importante era a que não estava lá</h2>
+  <p class="lede">O <span class="hl">describe()</span> mostrou 5 colunas de 11. A vibração — que depois se revela a variável que mais prevê — simplesmente não apareceu.</p>
+  <div class="frame note warn"><div class="nl">por quê</div>
+   <div class="nb">Ela veio como <b>texto</b>: <code style="font-family:var(--mono);color:var(--v3)">"7,83"</code>. O describe() só resume números, e passou reto. Nenhum erro, nenhum aviso — só a ausência.</div></div>
+ </div>
+ <div>
+  <div class="frame eqbox" style="width:100%"><div class="cap" style="line-height:1.85">
+   <span style="color:var(--faint)">&gt;&gt;&gt; dados.info()</span><br>
+   0  id_os&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;360 non-null  int64<br>
+   1  data_hora&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;360 non-null  object<br>
+   4  horas_uso&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;360 non-null  float64<br>
+   5  pressao_bar&nbsp;&nbsp;&nbsp;&nbsp;360 non-null  float64<br>
+   <span style="color:var(--v6)">6  vibracao_mm_s&nbsp;&nbsp;360 non-null  object</span><br>
+   7  temp_mancal_c&nbsp;&nbsp;<span style="color:var(--v6)">281</span> non-null  float64
+  </div></div>
+  <div class="frame note ok"><div class="nl">a ordem certa</div>
+   <div class="nb"><b>info() antes de describe().</b> O info conta o que existe e de que tipo; o describe só resume o que ele já considera número.</div></div>
+ </div>
+</div></section>
+
+<section class="slide ex"><div class="flush">
+ <div class="exhead"><span class="stars">★☆☆☆☆</span><span class="exlabel">exercício 1 · leitura de saída</span></div>
+ <p class="prompt">O <span class="data">info()</span> diz que <span class="data">temp_mancal_c</span> tem <span class="data">281 non-null</span> e todas as outras colunas têm 360. A base tem 360 linhas.<br><br>Quantas temperaturas estão faltando — e por que o <span class="data">describe()</span> não avisou nada sobre isso?</p>
+ <div class="answer frame"><div class="al">resposta</div>
+  <div class="ab"><b>79 temperaturas faltando</b> (360 − 281). O describe() <i>avisou</i>, sim — mas de um jeito fácil de não ver: a linha <span style="font-family:var(--mono)">count</span> daquela coluna mostra 281 enquanto as outras mostram 360. Ninguém olha a linha count. O <span style="font-family:var(--mono)">isnull().sum()</span> diz a mesma coisa de forma que não dá para ignorar.</div></div>
+ <div class="reveal">pressione <b>R</b> para revelar</div>
+</div></section>
+
+<section class="slide"><div class="cols l">
+ <div>
+  <div class="eyebrow blue">02 · olhar</div>
+  <h2 class="title">Onde fica o normal</h2>
+  <p class="lede">O histograma responde <span class="hl">"como as paradas se distribuem"</span>. A pilha alta é o dia a dia; o que está sozinho na ponta é o que interessa.</p>
+  <ul class="rules">
+   <li>Mediana de <span class="k">70 minutos</span> — o valor típico</li>
+   <li>A pilha vai até uns 130 min e depois <span class="k">rareia</span></li>
+   <li class="bad">Uma cauda comprida chega a <span class="k">291 minutos</span></li>
+  </ul>
+  <div class="frame note"><div class="nl">o que eu faço com isso</div>
+   <div class="nb">Uma cauda desse tamanho é um aviso: <b>a média vai mentir</b>. Para escolher o que reservar, a mediana e a cauda contam histórias diferentes.</div></div>
+ </div>
+ <div class="viz" data-viz="histo"></div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow blue">02 · olhar</div>
+ <h2 class="title" style="margin-bottom:1vh">A régua que aponta quem está fora</h2>
+ <p class="lede" style="margin-bottom:1.6vh;max-width:64ch">O boxplot não é um desenho bonito: é uma conta. E dá para fazê-la à mão, na ordem.</p>
+ <div class="viz sm" data-viz="boxplot"></div>
+ <div class="two" style="margin-top:1.6vh">
+  <div class="half good"><div class="hh">a conta, em quatro passos</div><div class="hb">
+   <div class="fx"><span class="fl">1</span><span class="fe">Q1 = valor abaixo do qual está 25% das paradas = 49,8 min</span></div>
+   <div class="fx"><span class="fl">2</span><span class="fe">Q3 = abaixo do qual está 75% delas = 93,2 min</span></div>
+   <div class="fx"><span class="fl">3</span><span class="fe">IQR = Q3 − Q1 = 43,4 min</span></div>
+   <div class="fx fr"><span class="fl">4</span><span class="fe">cerca = Q3 + 1,5 × IQR = 158,5 min</span></div>
+  </div></div>
+  <div class="half bad"><div class="hh">o que a régua NÃO faz</div><div class="hb">
+   Ela não diz que os 12 pontos acima da cerca são erro. Ela diz que são <b>diferentes</b>. O 1,5 é convenção, não lei da física — troque por 3 e a lista encolhe.<br><br>
+   Quem decide o que fazer com cada ponto é você, e a pergunta é sempre a mesma: <b>o que aconteceu na prensa?</b>
+  </div></div>
+ </div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow blue">02 · olhar</div>
+  <h2 class="title">A relação que muda de inclinação</h2>
+  <p class="lede">A dispersão responde <span class="hl">"existe relação entre estas duas colunas"</span> — e às vezes mostra mais do que isso.</p>
+  <div class="frame note warn"><div class="nl">o que o gráfico entrega de graça</div>
+   <div class="nb">Até uns 6 mm/s a parada cresce <b>em linha reta</b>. Depois dali, ela dispara. Não é ruído: acima desse ponto o dano deixa de ser desgaste e vira <b>destruição do rolamento</b>.</div></div>
+  <div class="cap" style="margin-top:1.6vh">nenhuma tabela de correlação teria mostrado isso.</div>
+ </div>
+ <div class="viz" data-viz="disp"></div>
+</div></section>
+
+<section class="slide"><div class="cols l">
+ <div>
+  <div class="eyebrow blue">02 · olhar</div>
+  <h2 class="title">O resumo que esconde</h2>
+  <p class="lede">A correlação diz num número o que os gráficos diziam. Como todo resumo, ela <span class="hl">também esconde</span>.</p>
+  <div class="frame note warn"><div class="nl">repare no id da os</div>
+   <div class="nb">O número da ordem de serviço correlaciona <b>0,18</b> com a duração da parada. A pressão hidráulica — uma variável física de verdade — correlaciona <b>0,03</b>.</div></div>
+  <div class="frame note"><div class="nl">por que isso acontece</div>
+   <div class="nb">O id cresce com o tempo. As máquinas envelhecem junto. Os dois sobem lado a lado sem um causar o outro. <b>Correlação não é causa</b> — e aqui o culpado está à vista.</div></div>
+ </div>
+ <div class="viz" data-viz="correl"></div>
+</div></section>
+
+<section class="slide ex"><div class="flush">
+ <div class="exhead"><span class="stars">★★☆☆☆</span><span class="exlabel">exercício 2 · escolha de variável</span></div>
+ <p class="prompt">Um colega olha a tabela e propõe: <i>"o <span class="data">id_os</span> tem correlação 0,18 e a <span class="data">pressao_bar</span> só 0,03. Vamos colocar o id no modelo e tirar a pressão."</i><br><br>Ele está certo? Se não, o que exatamente está errado no raciocínio?</p>
+ <div class="answer frame"><div class="al">resposta</div>
+  <div class="ab">Errado nas duas pontas. <b>O id não deve entrar</b>: ele é um contador que sobe com o tempo, junto com o desgaste — no dia em que a fábrica reiniciar a numeração das OS, o modelo quebra. <b>E a pressão não deve sair só por causa do 0,03</b>: correlação baixa mede apenas relação em linha reta, e uma variável pode não prever nada sozinha e ainda assim ajudar junto com outras. Correlação é ponto de partida da conversa, não critério de corte.</div></div>
+ <div class="reveal">pressione <b>R</b> para revelar</div>
+</div></section>
+
+<section class="slide pausa"><div class="flush pausa">
+ <div class="eyebrow" style="justify-content:center">fim do encontro 1</div>
+ <div class="big spectral-text">Achamos uma coluna com buracos<br>e uma vibração de 73 mm/s.</div>
+ <p class="lede" style="max-width:60ch;margin:3vh auto 0;text-align:center">Apagamos as duas?</p>
+ <div class="cap" style="margin-top:4vh">a resposta é não — e o motivo é o mais importante da aula</div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow">03 · corrigir</div>
+  <h2 class="title">A mesma parada, contada duas vezes</h2>
+  <p class="lede">Nove linhas do arquivo são <span class="hl">cópias exatas</span> de outras. E não é aleatório: são paradas longas, que atravessaram a virada de turno e saíram em dois exports.</p>
+  <ul class="rules">
+   <li>360 linhas no arquivo · <span class="k">351 paradas de verdade</span></li>
+   <li class="b2">Das 21 paradas acima de 130 min, só <span class="k">18 são reais</span></li>
+   <li class="b3">A média sobe de <span class="k">73,1 para 75,0 min</span> por causa delas</li>
+  </ul>
+  <div class="frame note warn"><div class="nl">o que isso estraga</div>
+   <div class="nb">Não é o modelo — é o <b>relatório</b>. Você contaria 21 paradas graves onde houve 18, e reportaria uma média inflada ao gestor.</div></div>
+ </div>
+ <div>
+  <div class="frame eqbox" style="width:100%"><div class="cap" style="line-height:2">
+   <span style="color:var(--faint)">&gt;&gt;&gt; dados.duplicated().sum()</span><br>
+   <span style="color:var(--v6);font-size:22px">9</span><br><br>
+   <span style="color:var(--faint)">&gt;&gt;&gt; dados = dados.drop_duplicates()</span><br>
+   <span style="color:var(--faint)">&gt;&gt;&gt; len(dados)</span><br>
+   <span style="color:var(--v3);font-size:22px">351</span>
+  </div></div>
+  <div class="frame note ok"><div class="nl">uma linha</div>
+   <div class="nb">A ferramenta resolve em um comando. O que ela não faz é <b>perguntar por que havia duplicatas</b> — e essa pergunta é que revelou a virada de turno.</div></div>
+ </div>
+</div></section>
+
+<section class="slide"><div class="cols l">
+ <div>
+  <div class="eyebrow">03 · corrigir</div>
+  <h2 class="title">Por que faltou?</h2>
+  <p class="lede">São 79 temperaturas em branco. A pergunta certa não é <i>"como preencho"</i> — é <span class="hl">"por que está vazio"</span>.</p>
+  <div class="frame note warn"><div class="nl">a falta tem endereço</div>
+   <div class="nb">Metade das paradas do turno da noite está sem temperatura, contra 6% nos outros dois. <b>Não é aleatório: é o turno da noite que não anota.</b></div></div>
+  <div class="frame note"><div class="nl">o campo em branco na OS</div>
+   <div class="nb">Em branco porque ninguém mediu, ou porque não havia o que medir? São coisas diferentes, e o conserto é diferente.</div></div>
+ </div>
+ <div class="viz" data-viz="faltas"></div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow">03 · corrigir</div>
+ <h2 class="title" style="margin-bottom:2.4vh">Três saídas, e uma balança</h2>
+ <div class="boxes">
+  <div class="box k1"><div class="n">apagar a linha</div><div class="t">Perde a parada inteira</div><div class="d">Custa as outras 10 colunas daquela parada, que estavam boas. Barato quando são poucas linhas.</div></div>
+  <div class="box k4"><div class="n">apagar a coluna</div><div class="t">Perde o sensor inteiro</div><div class="d">Aqui custaria a temperatura de 281 paradas para resolver 79. Quase nunca vale.</div></div>
+  <div class="box" style="border-top:2px solid var(--v3)"><div class="n" style="color:var(--v3)">preencher</div><div class="t">Inventa um número</div><div class="d">Mais barato — e mais perigoso, porque o número inventado não vem com etiqueta de inventado.</div></div>
+ </div>
+ <div class="frame note warn" style="margin-top:2.6vh"><div class="nl">a balança</div>
+  <div class="nb">Apagar as 79 linhas custa 79 paradas. Apagar a coluna custa a temperatura de 281. <b>Preencher custa a verdade</b> — e é por isso que a próxima decisão importa tanto.</div></div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow">03 · corrigir</div>
+  <h2 class="title">A média geral inventa noites que nunca existiram</h2>
+  <p class="lede">Preencher com a mediana de toda a base parece neutro. Não é: <span class="hl">quem falta é a noite</span>, e a noite roda quente.</p>
+  <div class="frame note warn"><div class="nl">o estrago</div>
+   <div class="nb">A mediana geral é <b>72,6 °C</b>. A do turno da noite é <b>93,4 °C</b>. Preencher com a geral cria 64 noites frias que nunca aconteceram.</div></div>
+  <div class="frame note ok"><div class="nl">o conserto</div>
+   <div class="nb">Preencher com a mediana <b>do turno</b>. Uma linha de código a mais — e o dado passa a respeitar o que a fábrica já sabia.</div></div>
+ </div>
+ <div class="viz" data-viz="imputa"></div>
+</div></section>
+
+<section class="slide ex"><div class="flush">
+ <div class="exhead"><span class="stars">★★★☆☆</span><span class="exlabel">exercício 3 · decisão justificada</span></div>
+ <p class="prompt">Você preencheu as temperaturas pela mediana geral e o erro do modelo praticamente não mudou: <span class="data">10,0</span> contra <span class="data">9,8</span> minutos.<br><br>Isso prova que a imputação geral serve? Como você defenderia sua escolha para o supervisor da manutenção?</p>
+ <div class="answer frame"><div class="al">resposta</div>
+  <div class="ab">Não prova nada. <b>A métrica não mudou porque o modelo compensou pelo turno</b> — ele já tinha a coluna "noite" para se apoiar. O estrago está na base, não no erro: quem abrir esse arquivo amanhã para outra coisa vai ler que a noite roda a 82 °C quando roda a 93. Para o supervisor, o argumento não é estatístico e sim de chão de fábrica: <b>"a média geral diz que suas noites são 11 graus mais frias do que são"</b>. Ele sabe que não são.</div></div>
+ <div class="reveal">pressione <b>R</b> para revelar</div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow amber">03 · corrigir · o slide da aula</div>
+  <h2 class="title">Termômetro quebrado<br>ou incêndio?</h2>
+  <p class="lede">A régua do boxplot flagrou três pontos. <span class="hl">Dois são sensor quebrado. Um é a falha mais cara do mês.</span> A mesma conta, duas decisões opostas.</p>
+  <div class="two" style="margin-top:1.6vh">
+   <div class="half bad"><div class="hh">outlier-ERRO</div><div class="hb">73 mm/s numa prensa é <b>fisicamente impossível</b>. Só na P-12, só em abril, só por 15 dias: o canal do acelerômetro perdeu o ganho.<br><br><b>Sai.</b></div></div>
+   <div class="half good"><div class="hh">outlier-EVENTO</div><div class="hb">7,83 mm/s é alto, mas possível — e veio com a parada mais longa do mês. É a falha que a fábrica quer prever.<br><br><b>Fica.</b></div></div>
+  </div>
+ </div>
+ <div class="viz" data-viz="tresflag"></div>
+</div></section>
+
+<section class="slide"><div class="cols l">
+ <div>
+  <div class="eyebrow amber">03 · corrigir</div>
+  <h2 class="title">A métrica melhorou.<br>O modelo piorou.</h2>
+  <p class="lede">Removendo as 12 paradas que o boxplot flagrou, o erro médio cai de <span class="hl">8,7 para 6,1 minutos</span>. Trinta por cento melhor.</p>
+  <div class="frame note warn"><div class="nl">e no caso que importa</div>
+   <div class="nb">A pior parada do semestre levou <b>291 minutos</b>. O modelo com os eventos previa 195. Sem eles, prevê <b>156</b> — o PCP reservaria <b>135 minutos a menos</b> na parada mais cara da fábrica.</div></div>
+  <div class="frame note ok"><div class="nl">a lição</div>
+   <div class="nb"><b>Métrica é resumo, e resumo esconde.</b> Um número melhor não é um modelo melhor.</div></div>
+ </div>
+ <div class="viz" data-viz="armadilha"></div>
+</div></section>
+
+<section class="slide ex"><div class="flush">
+ <div class="exhead"><span class="stars">★★★★☆</span><span class="exlabel">exercício 4 · leitura crítica</span></div>
+ <p class="prompt">Um colega mostra o resultado dele: <i>"removi os outliers e o erro caiu de <span class="data">8,7</span> para <span class="data">6,1</span> minutos"</i>. Ele quer publicar assim.<br><br>Que <b>duas perguntas</b> você faz antes de concordar — e o que cada resposta mudaria na sua decisão?</p>
+ <div class="answer frame"><div class="al">resposta</div>
+  <div class="ab"><b>1 · "O que aconteceu na máquina nessas paradas que você removeu?"</b> Se forem leituras impossíveis, remover está certo. Se forem falhas reais de rolamento, ele apagou justamente o que a fábrica precisa prever.<br><br><b>2 · "Quanto o seu modelo prevê para a parada de 291 minutos?"</b> É o teste que a métrica média não faz. Se a previsão caiu junto com o erro, o modelo ficou pior exatamente onde ele custa dinheiro.<br><br>O erro médio despenca em qualquer base quando você tira os casos difíceis. Isso não é melhora: é <b>mudar a prova</b>.</div></div>
+ <div class="reveal">pressione <b>R</b> para revelar</div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow">03 · corrigir</div>
+ <h2 class="title" style="margin-bottom:1.4vh">O livro de ocorrências do turno</h2>
+ <p class="lede" style="max-width:70ch;margin-bottom:2.2vh">Toda alteração na base vira uma linha do relatório. Quem abrir o arquivo depois de você precisa saber o que mudou e <span class="hl">por quê</span> — inclusive você, daqui a três meses.</p>
+ <ul class="chk">
+  <li><b>vibracao_mm_s</b> convertida de texto para número — vírgula decimal do painel</li>
+  <li><b>9 linhas duplicadas</b> removidas — export repetido de paradas que cruzaram a virada de turno</li>
+  <li><b>9 leituras acima de 20 mm/s</b> descartadas — sensor da P-12 descalibrado entre 09/04 e 25/04</li>
+  <li><b>12 paradas acima de 158 min mantidas</b> — são falhas reais de rolamento, e são o caso mais caro</li>
+  <li><b>turno</b> padronizado de 12 grafias para 3</li>
+  <li><b>79 temperaturas</b> preenchidas pela mediana <b>do turno</b>, não pela geral</li>
+ </ul>
+ <div class="frame note violet" style="margin-top:2vh"><div class="nl">por que isto é entregável</div>
+  <div class="nb">Na unidade 4 vocês vão escrever um relatório para um gestor industrial recomendando implantar ou não um modelo. <b>Metade desse relatório é esta lista.</b></div></div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow amber">04 · traduzir</div>
+  <h2 class="title">A régua e o paquímetro</h2>
+  <p class="lede">As horas de uso variam <span class="hl">32.745 unidades</span>. A pressão varia 6,4. Na mesma conta, a coluna grande grita mais alto — por ser grande, não por importar mais.</p>
+  <div class="frame note"><div class="nl">a imagem</div>
+   <div class="nb">É medir uma peça com uma trena e outra com um paquímetro, e depois somar os dois números como se fossem a mesma coisa.</div></div>
+ </div>
+ <div class="viz" data-viz="escalas"></div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow amber">04 · traduzir</div>
+ <h2 class="title" style="margin-bottom:1.2vh">Duas maneiras de tirar a unidade da frente</h2>
+ <div class="two" style="margin-top:1.8vh">
+  <div class="half good"><div class="hh">normalizar · MinMax</div><div class="hb">
+   <div class="fx"><span class="fl">1</span><span class="fe">x' = (x − mínimo) / (máximo − mínimo)</span></div>
+   <div class="fx"><span class="fl">ex</span><span class="fe">(38.000 − 8.255) / 32.745 = <b>0,908</b></span></div>
+   <br>Tudo entre 0 e 1. Fácil de ler. <b>Sensível ao extremo</b>: se aparecer uma leitura absurda, ela vira o novo máximo e esmaga todo o resto.
+  </div></div>
+  <div class="half bad" style="border:0"><div class="hh" style="color:var(--v5)">padronizar · Z-score</div><div class="hb">
+   <div class="fx"><span class="fl">2</span><span class="fe">z = (x − média) / desvio padrão</span></div>
+   <div class="fx"><span class="fl">ex</span><span class="fe">(38.000 − 29.092) / 9.087 = <b>+0,98</b></span></div>
+   <br>Mede em "quantos desvios da média". Não fica entre 0 e 1, mas <b>aguenta melhor o extremo</b> — e diz na hora se um valor é típico ou raro.
+  </div></div>
+ </div>
+ <div class="frame note warn" style="margin-top:2.2vh"><div class="nl">e quando não usar nenhum dos dois</div>
+  <div class="nb">Árvore de decisão e Random Forest — que vocês verão na próxima unidade — <b>não ligam para escala</b>. Escalonar ali não estraga nada, mas também não resolve nada. Escalonamento não é etapa obrigatória: é resposta a um problema específico.</div></div>
+</div></section>
+
+<section class="slide"><div class="cols l">
+ <div>
+  <div class="eyebrow amber">04 · traduzir</div>
+  <h2 class="title">A régua se afere uma vez só</h2>
+  <p class="lede">O <span class="hl">fit()</span> aprende os números da régua com os dados que você tem. O <span class="hl">transform()</span> aplica essa régua — inclusive na leitura que chegar amanhã.</p>
+  <div class="frame note warn"><div class="nl">o erro que isso evita</div>
+   <div class="nb">Aferir uma régua nova para cada lote é medir cada peça com um paquímetro diferente. Os números deixam de ser comparáveis, e ninguém percebe — porque continuam saindo números.</div></div>
+ </div>
+ <div>
+  <div class="frame eqbox" style="width:100%"><div class="cap" style="line-height:2">
+   <span style="color:var(--faint)"># aprende a régua — UMA vez</span><br>
+   regua = StandardScaler()<br>
+   regua.<span style="color:var(--v3)">fit</span>(dados[sensores])<br><br>
+   <span style="color:var(--faint)"># aplica a MESMA régua</span><br>
+   x = regua.<span style="color:var(--v5)">transform</span>(dados[sensores])<br>
+   novo = regua.<span style="color:var(--v5)">transform</span>(leitura_de_hoje)
+  </div></div>
+  <div class="frame note ok"><div class="nl">na planilha</div>
+   <div class="nb">Aba 5: mude os três números amarelos e veja as versões escalonadas mudarem — enquanto o bloco da régua <b>não se mexe</b>.</div></div>
+ </div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow amber">04 · traduzir</div>
+  <h2 class="title">Escalonar não muda tudo — mas onde muda, muda tudo</h2>
+  <p class="lede">No modelo de regressão, padronizar as colunas deixou o erro <span class="hl">exatamente igual</span>: 8,7 minutos antes e depois. Não é bug.</p>
+  <div class="frame note ok"><div class="nl">onde muda de verdade</div>
+   <div class="nb">Agrupando as paradas por semelhança, sem escalonar o algoritmo fatia os dados <b>só por horas de uso</b> — a vibração é ignorada por completo, porque os números dela são pequenos.</div></div>
+  <div class="cap" style="margin-top:1.4vh">a regra: escalonamento importa para tudo que mede DISTÂNCIA.</div>
+ </div>
+ <div class="viz" data-viz="kmeans"></div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow amber">04 · traduzir</div>
+ <h2 class="title" style="margin-bottom:1.2vh">Texto vira número — cada um de um jeito</h2>
+ <div class="two" style="margin-top:1.6vh">
+  <div class="half good"><div class="hh">ORDINAL · tem ordem</div><div class="hb">
+   <code>severidade: Baixa 0 · Média 1 · Alta 2</code><br><br>
+   Aqui o número carrega significado: Alta <b>é</b> maior que Média. Uma coluna só, e a ordem é informação verdadeira.
+  </div></div>
+  <div class="half bad"><div class="hh">NOMINAL · não tem ordem</div><div class="hb">
+   <code>turno: Manhã 0 · Noite 1 · Tarde 2</code><br><br>
+   Em ordem alfabética, isso avisa a máquina que <b>Tarde vale o dobro de Noite</b>. Não vale. Turno não tem ordem nenhuma.
+  </div></div>
+ </div>
+ <div class="frame note" style="margin-top:2vh"><div class="nl">a solução para o nominal · one-hot e a regra n−1</div>
+  <div class="nb">Três turnos viram <b>duas</b> colunas de 0 e 1. Quando as duas valem 0, o turno só pode ser o terceiro — a coluna que sobraria seria redundante. É isso que o <code style="font-family:var(--mono);color:var(--v3)">drop_first=True</code> faz.<br><br>Medido na base: com one-hot o erro é <b>9,8 min</b>; com códigos 0-1-2 no lugar errado, <b>10,8 min</b>.</div></div>
+</div></section>
+
+<section class="slide ex"><div class="flush">
+ <div class="exhead"><span class="stars">★★★★★</span><span class="exlabel">exercício 5 · transferência</span></div>
+ <p class="prompt">A base tem <span class="data">tipo_falha</span> com quatro valores: Elétrica, Ferramental, Hidráulica e Mecânica. Um colega codificou como <span class="data">0, 1, 2, 3</span> em ordem alfabética e o modelo ficou pior.<br><br>Explique <b>o que a máquina passou a acreditar</b> — e mostre por que One-Hot resolve, sem usar a palavra "dummy".</p>
+ <div class="answer frame"><div class="al">resposta</div>
+  <div class="ab">Com 0-1-2-3 a máquina acredita que os quatro tipos estão numa <b>escala</b>: que Mecânica (3) é três vezes Elétrica (0), que Hidráulica (2) está exatamente no meio do caminho entre Ferramental e Mecânica, e que a distância de Elétrica a Ferramental é a mesma de Hidráulica a Mecânica. Nada disso existe — a ordem é do alfabeto, não da física. E o efeito real nem é crescente: na base, hidráulica atrasa mais que mecânica.<br><br>O One-Hot resolve porque faz <b>uma pergunta de sim ou não por tipo</b> — "é hidráulica?", "é mecânica?" — e cada resposta ganha o seu próprio peso, livre das outras. Nenhum tipo fica mais perto ou mais longe de outro.</div></div>
+ <div class="reveal">pressione <b>R</b> para revelar</div>
+</div></section>
+
+<section class="slide"><div class="cols l">
+ <div>
+  <div class="eyebrow amber">04 · traduzir</div>
+  <h2 class="title">A coluna que o manutentor já calculava de cabeça</h2>
+  <p class="lede">Uma prensa velha vibra alto o tempo todo, e isso é normal <span class="hl">para ela</span>. O que assusta o manutentor não é o nível: é a vibração <span class="hl">subir de repente</span>.</p>
+  <div class="frame eqbox" style="width:100%"><div class="cap" style="line-height:1.9">
+   subida = vibração de hoje<br>
+   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;− média das 3 paradas anteriores<br>
+   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:var(--v5)">da mesma prensa</span>
+  </div></div>
+  <div class="frame note ok"><div class="nl">o que ela vale</div>
+   <div class="nb">Essa coluna não existia no arquivo. Criá-la derrubou o erro do modelo de <b>9,8 para 8,7 minutos</b> — mais do que qualquer limpeza fez sozinha.</div></div>
+ </div>
+ <div class="viz" data-viz="subida"></div>
+</div></section>
+
+<section class="slide"><div class="cols r">
+ <div>
+  <div class="eyebrow">o resultado</div>
+  <h2 class="title">O mesmo modelo, três vezes</h2>
+  <p class="lede">Nada mudou no algoritmo. Nenhuma linha nova de modelagem. Só <span class="hl">o que foi entregue a ele</span>.</p>
+  <ul class="rules">
+   <li class="bad">Com a base como veio: <span class="k">erra 24 minutos</span></li>
+   <li>Depois de CORRIGIR: <span class="k">erra 13 minutos</span></li>
+   <li class="b2">Depois de TRADUZIR: <span class="k">erra 8,7 minutos</span></li>
+  </ul>
+  <div class="frame note warn"><div class="nl">honestidade sobre este número</div>
+   <div class="nb">Medimos no próprio dado que treinou o modelo. Isso é um <b>ponteiro</b>, não uma promessa de desempenho. Separar treino e teste é a próxima unidade — e lá o número vai piorar, de propósito.</div></div>
+ </div>
+ <div class="viz" data-viz="termometro"></div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow">a peça para consultar daqui a seis meses</div>
+ <h2 class="title" style="margin-bottom:2.2vh">Sintoma → causa → onde olhar → o que fazer</h2>
+ <div class="itable diag">
+  <div class="h">sintoma</div><div class="h">causa provável</div><div class="h">onde olhar</div><div class="h">o que fazer</div>
+  <div class="cause" style="grid-column:span 4">02 · OLHAR</div>
+  <div class="c">uma coluna some do <b>describe()</b></div><div class="c">veio como texto</div><div class="c"><b>info()</b> · dtype object</div><div class="c">converter vírgula decimal e refazer o describe</div>
+  <div class="c">a dispersão vira uma faixa vertical</div><div class="c">um valor extremo esticou o eixo</div><div class="c">boxplot da coluna do eixo X</div><div class="c">achar o valor, checar se é fisicamente possível</div>
+  <div class="c">correlação alta numa coluna sem sentido físico</div><div class="c">as duas crescem com o tempo</div><div class="c">a coluna é id, data ou contador?</div><div class="c">tirar do modelo; não é feature</div>
+  <div class="cause" style="grid-column:span 4">03 · CORRIGIR</div>
+  <div class="c">contagens não batem com o que a fábrica sabe</div><div class="c">linhas duplicadas</div><div class="c"><b>duplicated().sum()</b></div><div class="c">remover e investigar por que duplicou</div>
+  <div class="c">falta concentrada num grupo</div><div class="c">quem coleta não anota</div><div class="c"><b>isnull()</b> agrupado por turno, máquina, operador</div><div class="c">preencher pelo grupo, nunca pela média geral</div>
+  <div class="c">o boxplot flagra vários pontos</div><div class="c">pode ser erro OU evento raro</div><div class="c">o valor é fisicamente possível?</div><div class="c">erro sai · evento fica e vira o caso de teste</div>
+  <div class="c">a métrica melhorou muito de repente</div><div class="c">alguém removeu os casos difíceis</div><div class="c">quantas linhas sobraram?</div><div class="c">conferir a previsão no caso mais caro</div>
+  <div class="cause" style="grid-column:span 4">04 · TRADUZIR</div>
+  <div class="c">o one-hot criou colunas demais</div><div class="c">o texto não foi padronizado</div><div class="c"><b>value_counts()</b> da coluna</div><div class="c">strip, lower e mapear antes de codificar</div>
+  <div class="c">o modelo piorou depois de codificar</div><div class="c">nominal virou 0,1,2</div><div class="c">a coluna tem ordem de verdade?</div><div class="c">ordinal só onde a ordem existe; o resto é one-hot</div>
+ </div>
+</div></section>
+
+<section class="slide"><div class="flush">
+ <div class="eyebrow violet">o presente da aula</div>
+ <h2 class="title" style="margin-bottom:2.4vh">Isto foi só o começo</h2>
+ <div class="grid3">
+  <div class="col3 a"><div class="ch">numa pós-graduação</div><div class="cs">o que ficou fora, e por quê</div>
+   <ul>
+    <li><b>Testes de normalidade</b> e transformações (Box-Cox)</li>
+    <li><b>Imputação multivariada</b>: usar as outras colunas para adivinhar a que falta</li>
+    <li><b>Detecção de outlier multivariada</b>: o ponto que é estranho só na combinação</li>
+    <li><b>Seleção de atributos</b> com teste estatístico</li>
+   </ul></div>
+  <div class="col3 b"><div class="ch">nas próximas unidades</div><div class="cs">do próprio curso de vocês</div>
+   <ul>
+    <li><b>Treino e teste</b>: por que medir no próprio dado engana</li>
+    <li><b>Overfitting</b>: o modelo que decorou em vez de aprender</li>
+    <li><b>As métricas</b>: MAE, RMSE, R², matriz de confusão</li>
+    <li><b>O relatório ao gestor</b>: implantar ou não, e por quê</li>
+   </ul></div>
+  <div class="col3 c"><div class="ch">só aparece em produção</div><div class="cs">onde a maioria dos projetos morre</div>
+   <ul>
+    <li><b>Data drift</b>: o sensor de hoje não é o de um ano atrás</li>
+    <li><b>Pipeline</b>: a limpeza tem que rodar sozinha, toda vez</li>
+    <li><b>O dado que chega sujo de um jeito novo</b>, que ninguém previu</li>
+    <li><b>Monitoramento</b>: descobrir que quebrou antes do cliente descobrir</li>
+   </ul></div>
+ </div>
+ <div class="frame note ok" style="margin-top:2.2vh"><div class="nl">o que você já leva daqui</div>
+  <div class="nb">O <b>método</b> é o mesmo em qualquer projeto: perguntar de onde veio o dado, olhar antes de mexer, corrigir com justificativa registrada e traduzir para a língua do algoritmo. Troca-se a ferramenta, troca-se o algoritmo — <b>o julgamento continua sendo seu.</b></div></div>
+</div></section>
+
+</div>
+<div class="hint">← → navegar · R resposta</div>
+<div class="brand">SENAI · ML APLICADA À INDÚSTRIA</div>
+<div class="counter"><b id="cur">01</b> / <span id="tot">00</span></div>
+<div class="progress" id="prog"></div>
+<script>const SP=['#9168D6','#4F86C6','#2FB89A','#56C877','#B5DC4A','#F4ED45'];
+function hx(h){return [parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]}
+function lp(a,b,t){return a+(b-a)*t}
+function spectral(t){t=Math.max(0,Math.min(1,t));const n=SP.length-1;const i=Math.min(n-1,Math.floor(t*n));const f=t*n-i;const a=hx(SP[i]),b=hx(SP[i+1]);return `rgb(${Math.round(lp(a[0],b[0],f))},${Math.round(lp(a[1],b[1],f))},${Math.round(lp(a[2],b[2],f))})`}
+const AX='rgba(143,164,183,.30)', GA='#93A4B7', MONO='JetBrains Mono';
+const D={"histo": {"c": [10, 36, 63, 69, 77, 31, 35, 18, 7, 5, 2, 2, 0, 1, 1, 0, 1, 2], "e": [6, 22, 38, 54, 69, 85, 101, 117, 133, 148, 164, 180, 196, 212, 228, 244, 259, 275, 291]}, "box": {"q1": 49.8, "q2": 70.0, "q3": 93.2, "cerca": 158.5, "min": 6.0, "max": 156.0, "fora": [161.0, 161.0, 164.0, 174.0, 174.0, 182.0, 187.0, 220.0, 229.0, 269.0, 291.0, 291.0]}, "disp": [[5.06, 93], [2.7, 9], [4.25, 69], [4.22, 113], [3.73, 65], [4.79, 95], [5.4, 72], [4.49, 74], [4.65, 109], [4.16, 42], [4.33, 53], [3.94, 32], [3.65, 42], [5.87, 90], [6.02, 114], [3.49, 37], [6.05, 128], [4.28, 82], [7.0, 143], [3.77, 74], [3.52, 51], [5.3, 121], [4.14, 92], [7.55, 182], [3.97, 41], [4.03, 28], [5.38, 72], [4.06, 59], [5.35, 112], [4.57, 86], [4.94, 99], [3.95, 78], [4.42, 56], [3.91, 67], [4.14, 44], [4.94, 109], [4.81, 96], [3.84, 82], [4.21, 49], [6.12, 123], [4.64, 60], [4.04, 63], [4.91, 102], [6.98, 123], [3.54, 23], [5.37, 102], [4.74, 71], [5.74, 78], [3.88, 33], [6.4, 114], [4.7, 49], [3.3, 35], [4.61, 72], [5.51, 96], [3.55, 52], [5.07, 58], [3.19, 30], [3.61, 30], [3.64, 44], [3.99, 51], [4.65, 71], [4.0, 58], [3.96, 59], [5.84, 103], [6.1, 102], [5.73, 119], [4.57, 29], [3.43, 55], [5.71, 113], [3.64, 32], [4.54, 70], [3.96, 76], [4.75, 42], [3.26, 51], [3.02, 27], [3.42, 25], [4.24, 70], [3.66, 53], [4.35, 51], [3.3, 67], [5.1, 128], [4.79, 76], [4.65, 83], [5.44, 72], [4.55, 94], [4.45, 72], [3.24, 50], [8.07, 229], [2.95, 65], [3.78, 64], [3.92, 48], [4.41, 81], [3.85, 57], [5.8, 74], [4.89, 104], [6.71, 117], [6.04, 82], [4.69, 67], [3.7, 71], [2.82, 29], [4.16, 50], [4.01, 50], [4.27, 101], [4.28, 46], [6.3, 97], [5.07, 71], [5.65, 78], [3.75, 28], [4.97, 47], [3.47, 44], [3.21, 55], [5.62, 115], [5.26, 98], [6.52, 110], [5.0, 47], [4.45, 68], [5.21, 111], [3.19, 44], [3.18, 54], [3.52, 51], [6.68, 161], [4.44, 62], [4.35, 83], [4.26, 50], [7.97, 220], [4.39, 95], [4.82, 66], [5.92, 124], [5.4, 97], [4.68, 74]], "corr": [["vibração", 0.84], ["horas de uso", 0.38], ["temperatura", 0.23], ["id da OS", 0.18], ["pressão", 0.03]], "faltas": [["manhã", 6.9], ["tarde", 6.1], ["noite", 50.8]], "imput": {"c": [0, 0, 0, 1, 0, 4, 6, 13, 14, 8, 6, 7, 0, 1], "e": [68, 71, 74, 77, 80, 83, 86, 89, 92, 95, 98, 101, 104, 107, 110], "pico": 60, "med": 71.5, "mednoite": 93.4}, "ampl": [["horas_uso", 32745], ["temp_mancal_c", 55.8], ["vibracao_mm_s", 6.4], ["pressao_bar", 6.4]], "km": [[12336, 2.88, 2, 1], [37443, 4.94, 1, 2], [27023, 4.21, 0, 2], [36211, 5.15, 1, 2], [25769, 4.14, 0, 1], [36968, 4.11, 1, 2], [27872, 3.99, 0, 2], [19007, 3.88, 2, 1], [34680, 4.03, 1, 2], [17870, 8.92, 2, 0], [35660, 5.4, 1, 0], [28884, 6.88, 0, 0], [26734, 3.33, 0, 1], [20283, 3.06, 2, 1], [26764, 5.47, 0, 2], [40452, 5.38, 1, 0], [23864, 4.46, 0, 1], [27370, 4.04, 0, 2], [41000, 6.05, 1, 0], [30982, 3.82, 0, 2], [41000, 5.92, 1, 0], [39129, 5.26, 1, 2], [41000, 5.84, 1, 0], [38886, 6.06, 1, 0], [23446, 3.61, 0, 1], [24911, 6.97, 0, 0], [27070, 5.51, 0, 2], [37689, 4.71, 1, 2], [12790, 3.34, 2, 1], [19298, 3.34, 2, 1], [40192, 4.14, 1, 2], [20890, 3.19, 2, 1], [21909, 4.25, 2, 1], [28140, 3.85, 0, 2], [31973, 4.01, 0, 2], [41000, 4.23, 1, 2], [35517, 4.57, 1, 2], [38889, 6.68, 1, 0], [15184, 3.69, 2, 1], [40656, 5.44, 1, 0], [25308, 4.94, 0, 2], [41000, 5.98, 1, 0], [28568, 4.35, 0, 2], [25751, 3.91, 0, 1], [16316, 2.7, 2, 1], [33796, 4.26, 1, 2], [40967, 5.4, 1, 0], [27844, 4.41, 0, 2], [31383, 4.92, 0, 2], [25067, 5.19, 0, 2], [27593, 3.92, 0, 2], [41000, 4.42, 1, 2], [25332, 4.35, 0, 1], [41000, 6.65, 1, 0], [38244, 4.36, 1, 2], [18363, 2.82, 2, 1], [34560, 3.96, 1, 2], [18780, 3.24, 2, 1], [14990, 3.26, 2, 1], [8255, 3.49, 2, 1], [10721, 3.52, 2, 1], [26458, 3.22, 0, 1], [38831, 4.68, 1, 2], [25150, 4.6, 0, 2], [32566, 4.02, 0, 2], [26673, 4.45, 0, 2], [38228, 4.54, 1, 2], [40172, 6.69, 1, 0], [10532, 2.79, 2, 1], [38545, 4.28, 1, 2], [32648, 4.73, 0, 2], [37040, 4.65, 1, 2], [34009, 6.22, 1, 0], [24261, 3.31, 0, 1], [31681, 3.62, 0, 2], [33844, 5.2, 1, 2], [16553, 2.98, 2, 1], [36318, 6.1, 1, 0], [22590, 4.01, 0, 1], [33277, 5.64, 1, 0], [28379, 3.77, 0, 2], [14622, 3.43, 2, 1], [41000, 6.84, 1, 0], [28076, 3.92, 0, 2], [18968, 4.35, 2, 1], [40585, 5.08, 1, 2], [24644, 4.91, 0, 2], [27222, 6.05, 0, 0], [21880, 3.71, 2, 1], [41000, 4.51, 1, 2], [24501, 4.04, 0, 1], [22508, 3.64, 0, 1], [23358, 4.69, 0, 1], [27287, 4.55, 0, 2], [12991, 3.78, 2, 1], [17345, 3.93, 2, 1], [8785, 2.86, 2, 1], [20024, 3.01, 2, 1], [11595, 3.3, 2, 1], [22169, 4.16, 2, 1], [27728, 3.96, 0, 2], [20560, 3.66, 2, 1], [31295, 8.33, 0, 0], [26785, 3.52, 0, 1], [41000, 6.47, 1, 0], [27634, 4.97, 0, 2], [35074, 3.92, 1, 2], [13115, 3.24, 2, 1], [41000, 5.19, 1, 2], [29810, 3.46, 0, 2], [36724, 4.09, 1, 2], [27593, 3.41, 0, 1], [32365, 4.7, 0, 2], [20722, 3.95, 2, 1], [41000, 5.45, 1, 0], [13944, 3.42, 2, 1], [35997, 5.51, 1, 0], [35448, 5.8, 1, 0], [40195, 4.91, 1, 2], [38649, 4.51, 1, 2]], "subida": [["11/03", 7.83, null], ["12/03", 4.57, null], ["14/03", 4.75, null], ["19/03", 5.3, 5.72], ["21/03", 4.51, 4.87], ["24/03", 4.79, 4.85], ["30/03", 4.03, 4.87], ["31/03", 3.79, 4.44], ["31/03", 4.26, 4.2], ["02/04", 5.73, 4.03], ["03/04", 4.94, 4.59], ["06/04", 4.54, 4.98]], "flag": [[7.83, 174], [4.57, 29], [4.75, 42], [5.3, 121], [4.51, 49], [4.79, 95], [4.03, 72], [3.79, 65], [4.26, 50], [5.73, 119], [4.94, 62], [4.54, 70], [72.67, 145], [66.72, 108]], "flagcerca": 7.28, "term": [24.0, 13.0, 8.7], "armad": {"erro": [8.7, 6.1], "prev": [195, 156], "real": 291}};
+
+function eixos(W,H,pad,xl,yl){
+ return `<line x1="${pad}" y1="${H-pad}" x2="${W-14}" y2="${H-pad}" stroke="${AX}" stroke-width="1.2"/>`
+      +`<line x1="${pad}" y1="14" x2="${pad}" y2="${H-pad}" stroke="${AX}" stroke-width="1.2"/>`
+      +`<text x="${(W+pad)/2}" y="${H-10}" fill="${GA}" font-size="12.5" font-family="${MONO}" text-anchor="middle">${xl}</text>`
+      +`<text x="14" y="${(H-pad)/2}" fill="${GA}" font-size="12.5" font-family="${MONO}" text-anchor="middle" transform="rotate(-90 14 ${(H-pad)/2})">${yl}</text>`}
+const T=(x,y,s,o={})=>`<text x="${x}" y="${y}" fill="${o.f||GA}" font-size="${o.s||12}" font-family="${o.ff||MONO}" text-anchor="${o.a||'start'}"${o.w?` font-weight="${o.w}"`:''}${o.c?` class="${o.c}"`:''}>${s}</text>`;
+const LN=(x1,y1,x2,y2,o={})=>`<path${o.c?` class="${o.c}" pathLength="1"`:''} d="M ${x1} ${y1} L ${x2} ${y2}" fill="none" stroke="${o.s||AX}" stroke-width="${o.w||1.2}"${o.d?` stroke-dasharray="${o.d}"`:''}/>`;
+
+/* ── capa: a nuvem suja que se organiza ───────────────────────── */
+function capa(){const W=520,H=440,cx=W/2,cy=H/2;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ for(let i=0;i<6;i++){s+=`<circle class="fade" cx="${cx}" cy="${cy}" r="${58+i*30}" fill="none" stroke="url(#gsp)" stroke-width="1" opacity="${(0.28-i*0.035).toFixed(2)}"/>`}
+ const pts=[];for(let i=0;i<46;i++){const a=i*2.399,rr=18+i*4.3;pts.push([cx+Math.cos(a)*rr,cy+Math.sin(a)*rr*0.72])}
+ pts.forEach((p,i)=>{const ruim=(i%13===5);
+  s+=`<circle class="pop" style="--i:${i*0.16}" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${ruim?5.5:(2.2+i*0.07).toFixed(1)}" fill="${ruim?'#F4ED45':spectral(i/45)}" filter="url(#glow)" opacity="${ruim?1:.9}"/>`;
+  if(ruim)s+=`<circle class="fade2" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="11" fill="none" stroke="#F4ED45" stroke-width="1.3" opacity=".8"/>`});
+ s+=LN(44,H-58,W-44,58,{c:'draw d2',s:'url(#gsp)',w:3});
+ return s+T(W-40,H-24,'nem todo ponto merece confiança',{a:'end',s:11.5,c:'fade2'})+`</svg>`}
+
+/* ── o custo dos dois erros ───────────────────────────────────── */
+function custo(){const W=540,H=300;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const dados=[['reservar DEMAIS',1400,'#2FB89A','linha ociosa esperando'],
+              ['reservar DE MENOS',3800,'#F4ED45','replanejar o dia inteiro']];
+ dados.forEach((d,k)=>{const y=70+k*118,w=d[1]/3800*(W-210);
+  s+=T(56,y-12,d[0],{s:13,w:600,f:d[2]});
+  s+=`<rect class="growx" x="56" y="${y}" width="${w.toFixed(0)}" height="42" rx="3" fill="${d[2]}" opacity=".85"/>`;
+  s+=T(62+w,y+27,`R$ ${d[1].toLocaleString('pt-BR')} / h`,{s:14,w:600,f:d[2]});
+  s+=T(56,y+62,d[3],{s:11.5})});
+ return s+`</svg>`}
+
+/* ── histograma do alvo ───────────────────────────────────────── */
+function histo(){const W=540,H=380,pad=52,h=D.histo;const n=h.c.length,mx=Math.max(...h.c);
+ const bw=(W-pad-24)/n;let s=`<svg viewBox="0 0 ${W} ${H}">`+eixos(W,H,pad,'minutos de parada','quantidade');
+ h.c.forEach((v,i)=>{const bh=v/mx*(H-pad-40),x=pad+i*bw;
+  s+=`<rect class="grow" style="animation-delay:${(.4+i*.03).toFixed(2)}s" x="${(x+1).toFixed(1)}" y="${(H-pad-bh).toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${bh.toFixed(1)}" fill="${i>10?'#F4ED45':'#4F86C6'}" opacity="${i>10?.95:.8}" rx="1.5"/>`});
+ s+=T(pad+bw*11.4,H-pad-120,'a cauda',{s:12.5,f:'#F4ED45',c:'fade2'});
+ s+=T(pad+bw*11.4,H-pad-104,'12 paradas',{s:12.5,f:'#F4ED45',c:'fade2'});
+ h.e.forEach((e,i)=>{if(i%4===0)s+=T(pad+i*bw,H-pad+16,e,{s:11,a:'middle'})});
+ return s+`</svg>`}
+
+/* ── boxplot do alvo com a cerca ──────────────────────────────── */
+function boxplot(){const W=1200,H=210,pad=64,b=D.box;const X=v=>pad+v/310*(W-pad-40),cy=86;
+ let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ s+=LN(pad,H-44,W-24,H-44,{});
+ [0,50,100,150,200,250,300].forEach(v=>{s+=T(X(v),H-26,v,{s:13,a:'middle'})});
+ s+=T((W+pad)/2,H-6,'minutos de parada',{s:13,a:'middle'});
+ s+=LN(X(b.min),cy,X(b.q1),cy,{c:'draw',s:AX,w:1.6});
+ s+=LN(X(b.q3),cy,X(b.max),cy,{c:'draw',s:AX,w:1.6});
+ s+=LN(X(b.min),cy-11,X(b.min),cy+11,{c:'draw',s:AX,w:1.4});
+ s+=LN(X(b.max),cy-11,X(b.max),cy+11,{c:'draw',s:AX,w:1.4});
+ s+=`<rect class="fade" x="${X(b.q1)}" y="${cy-26}" width="${X(b.q3)-X(b.q1)}" height="52" fill="rgba(79,134,198,.22)" stroke="#4F86C6" stroke-width="1.8" rx="2"/>`;
+ s+=LN(X(b.q2),cy-26,X(b.q2),cy+26,{c:'draw d2',s:'#4F86C6',w:2.6});
+ s+=T(X(b.q1),cy-34,'Q1 '+b.q1,{s:13,a:'middle',f:'#4F86C6'})+T(X(b.q3),cy-34,'Q3 '+b.q3,{s:13,a:'middle',f:'#4F86C6'});
+ s+=`<path class="fade2" d="M ${X(b.cerca)} 30 L ${X(b.cerca)} ${cy+40}" fill="none" stroke="#B5DC4A" stroke-width="1.8" stroke-dasharray="6 5"/>`;
+ s+=T(X(b.cerca)+10,40,`cerca = ${b.cerca} min`,{s:13.5,f:'#B5DC4A',c:'fade2'});
+ b.fora.forEach((v,i)=>{s+=`<circle class="pop" style="--i:${8+i*0.6}" cx="${X(v).toFixed(1)}" cy="${cy+((i%3)-1)*10}" r="6" fill="#F4ED45" filter="url(#glow)"/>`});
+ s+=T(pad,26,'a caixa é o dia normal · os 12 pontos soltos viraram ocorrência',{s:13});
+ return s+`</svg>`}
+
+/* ── dispersão vibração × tempo ───────────────────────────────── */
+function disp(){const W=540,H=400,pad=54;
+ const X=v=>pad+(v-2.3)/6.9*(W-pad-26), Y=v=>H-pad-v/300*(H-pad-24);
+ let s=`<svg viewBox="0 0 ${W} ${H}">`+eixos(W,H,pad,'vibração (mm/s)','minutos de parada');
+ D.disp.forEach((p,i)=>{s+=`<circle class="pop" style="--i:${i*0.09}" cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="4.2" fill="${spectral((p[0]-2.5)/6.5)}" opacity=".85"/>`});
+ s+=`<path class="fade2" d="M ${X(2.5)} ${Y(28)} L ${X(6)} ${Y(105)}" fill="none" stroke="#2FB89A" stroke-width="2" stroke-dasharray="6 5"/>`;
+ s+=T(X(3.2),Y(150),'até aqui, sobe em linha reta',{s:11.5,f:'#2FB89A',c:'fade2'});
+ s+=`<path class="draw d3" pathLength="1" d="M ${X(6)} ${Y(105)} Q ${X(7.6)} ${Y(150)} ${X(8.9)} ${Y(285)}" fill="none" stroke="#F4ED45" stroke-width="2.6"/>`;
+ s+=T(X(6.3),Y(255),'acima de 6 mm/s',{s:12,f:'#F4ED45',c:'fade2'});
+ s+=T(X(6.3),Y(230),'o rolamento se destrói',{s:12,f:'#F4ED45',c:'fade2'});
+ return s+`</svg>`}
+
+/* ── correlação com o identificador ───────────────────────────── */
+function correl(){const W=540,H=330,pad=126;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ D.corr.forEach((c,i)=>{const y=42+i*54,w=Math.abs(c[1])*(W-pad-70);
+  const cor = c[0]==='id da OS' ? '#F4ED45' : (c[0]==='pressão' ? '#5E7186' : spectral(0.15+i*0.12));
+  s+=T(pad-12,y+19,c[0],{a:'end',s:13,f:c[0]==='id da OS'?'#F4ED45':GA});
+  s+=`<rect class="growx" style="animation-delay:${(.35+i*.09).toFixed(2)}s" x="${pad}" y="${y}" width="${Math.max(w,2).toFixed(0)}" height="26" rx="3" fill="${cor}" opacity=".9"/>`;
+  s+=T(pad+w+9,y+19,c[1].toFixed(2),{s:13,w:600,f:cor})});
+ s+=T(pad,H-16,'o número da ordem de serviço prevê melhor que a pressão hidráulica',{s:11.5,f:'#F4ED45'});
+ return s+`</svg>`}
+
+/* ── % de temperatura ausente por turno ───────────────────────── */
+function faltas(){const W=520,H=330,pad=56;let s=`<svg viewBox="0 0 ${W} ${H}">`+eixos(W,H,pad,'','% de temperatura em branco');
+ D.faltas.forEach((f,i)=>{const bw=76,x=pad+50+i*130,bh=f[1]/60*(H-pad-40);
+  const cor=f[1]>30?'#F4ED45':'#4F86C6';
+  s+=`<rect class="grow" style="animation-delay:${(.4+i*.12).toFixed(2)}s" x="${x}" y="${(H-pad-bh).toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" rx="3" fill="${cor}" opacity=".9"/>`;
+  s+=T(x+bw/2,H-pad-bh-12,f[1].toFixed(1)+'%',{a:'middle',s:14,w:600,f:cor});
+  s+=T(x+bw/2,H-pad+20,f[0],{a:'middle',s:13})});
+ s+=T(pad,26,'a falta tem endereço',{s:12,f:'#F4ED45'});
+ return s+`</svg>`}
+
+/* ── imputação global: o pico que não existe ──────────────────── */
+function imputa(){const W=560,H=350,pad=56,m=D.imput;const n=m.c.length,mx=Math.max(m.pico,...m.c);
+ const bw=(W-pad-90)/(n+2);let s=`<svg viewBox="0 0 ${W} ${H}">`+eixos(W,H,pad,'temperatura do mancal (°C) · turno da noite','paradas');
+ const ph=m.pico/mx*(H-pad-46);
+ s+=`<rect class="grow" x="${pad+6}" y="${(H-pad-ph).toFixed(1)}" width="${(bw-3).toFixed(1)}" height="${ph.toFixed(1)}" rx="2" fill="#F4ED45"/>`;
+ s+=T(pad+6+bw+8,H-pad-ph+4,`${m.pico} noites`,{s:13,w:600,f:'#F4ED45'});
+ s+=T(pad+6+bw+8,H-pad-ph+22,`inventadas a ${m.med} °C`,{s:12,f:'#F4ED45'});
+ m.c.forEach((v,i)=>{const bh=v/mx*(H-pad-46),x=pad+6+(i+2)*bw;
+  s+=`<rect class="grow" style="animation-delay:${(.5+i*.03).toFixed(2)}s" x="${x.toFixed(1)}" y="${(H-pad-bh).toFixed(1)}" width="${(bw-3).toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="#2FB89A" opacity=".85"/>`});
+ s+=T(pad+6,H-pad+18,m.med,{s:11,a:'middle'});
+ [0,4,8,12].forEach(i=>{s+=T(pad+6+(i+2)*bw,H-pad+18,m.e[i],{s:11,a:'middle'})});
+ s+=T(W-20,40,`a noite real roda a ${m.mednoite} °C`,{a:'end',s:12.5,f:'#2FB89A'});
+ return s+`</svg>`}
+
+/* ── os três pontos flagrados, duas decisões ──────────────────── */
+function tresflag(){const W=580,H=380,pad=60,xb=pad+0.66*(W-pad-30);
+ const X=v=>v<20 ? pad+(v-2.5)/6.8*(xb-pad) : xb+46+(v-40)/40*(W-30-xb-46);
+ const Y=v=>H-pad-v/300*(H-pad-34);
+ let s=`<svg viewBox="0 0 ${W} ${H}">`+eixos(W,H,pad,'vibração lida (mm/s)','minutos de parada');
+ s+=`<path class="fade" d="M ${xb+14} ${H-pad+7} l 9 -14 M ${xb+26} ${H-pad+7} l 9 -14" stroke="${AX}" stroke-width="1.6" fill="none"/>`;
+ s+=T(xb+24,H-pad+26,'//',{s:12,a:'middle'});
+ [3,5,7].forEach(t=>s+=T(X(t),H-pad+20,t,{s:11.5,a:'middle'}));
+ [50,70].forEach(t=>s+=T(X(t),H-pad+20,t,{s:11.5,a:'middle'}));
+ s+=`<path class="fade2" d="M ${X(D.flagcerca)} 26 L ${X(D.flagcerca)} ${H-pad}" fill="none" stroke="#B5DC4A" stroke-width="1.6" stroke-dasharray="5 4"/>`;
+ s+=T(X(D.flagcerca)+8,38,`cerca = ${D.flagcerca} mm/s`,{s:12,f:'#B5DC4A'});
+ D.flag.forEach((p,i)=>{const fora=p[0]>D.flagcerca, err=p[0]>20;
+  s+=`<circle class="pop" style="--i:${i*0.22}" cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="${fora?7.5:5}" fill="${err?'#F4ED45':(fora?'#2FB89A':'#4F86C6')}" ${fora?'filter="url(#glow)"':'opacity=".7"'}/>`});
+ s+=T(X(7.83)-14,Y(174)+30,'7,83 mm/s · 174 min',{a:'end',s:12,f:'#2FB89A',c:'fade2'});
+ s+=T(X(7.83)-14,Y(174)+48,'a falha real — FICA',{a:'end',s:12,w:600,f:'#2FB89A',c:'fade2'});
+ s+=T(W-24,Y(145)-40,'66 e 73 mm/s',{a:'end',s:12,f:'#F4ED45',c:'fade2'});
+ s+=T(W-24,Y(145)-22,'sensor quebrado — SAI',{a:'end',s:12,w:600,f:'#F4ED45',c:'fade2'});
+ return s+`</svg>`}
+
+/* ── a armadilha: métrica melhora, modelo piora ───────────────── */
+function armadilha(){const W=560,H=340,a=D.armad;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ s+=T(30,26,'ERRO MÉDIO DO MODELO',{s:12,w:600,f:'#93A4B7'});
+ [['com os 12 eventos',a.erro[0],'#2FB89A'],['sem eles',a.erro[1],'#F4ED45']].forEach((d,k)=>{
+  const w=d[1]/10*200,y=48+k*44;
+  s+=`<rect class="growx" style="animation-delay:${(.35+k*.12).toFixed(2)}s" x="30" y="${y}" width="${w.toFixed(0)}" height="28" rx="3" fill="${d[2]}" opacity=".85"/>`;
+  s+=T(38+w,y+19,`${d[1].toFixed(1)} min`,{s:13.5,w:600,f:d[2]})+T(300,y+19,d[0],{s:12.5})});
+ s+=T(30,158,'"melhorou 30%"',{s:13,w:600,f:'#F4ED45'});
+ s+=LN(30,178,W-30,178,{});
+ s+=T(30,206,`PREVISÃO DA PIOR PARADA (real: ${a.real} min)`,{s:12,w:600,f:'#93A4B7'});
+ [['modelo com os eventos',a.prev[0],'#2FB89A'],['modelo sem eles',a.prev[1],'#F4ED45']].forEach((d,k)=>{
+  const w=d[1]/300*350,y=226+k*42;
+  s+=`<rect class="growx" style="animation-delay:${(.7+k*.12).toFixed(2)}s" x="30" y="${y}" width="${w.toFixed(0)}" height="26" rx="3" fill="${d[2]}" opacity=".85"/>`;
+  s+=T(38+w,y+18,`${d[1]} min`,{s:13,w:600,f:d[2]})});
+ const wr=a.real/300*350;
+ s+=`<path class="fade2" d="M ${30+wr} 220 L ${30+wr} 312" fill="none" stroke="#E8EEF4" stroke-width="1.6" stroke-dasharray="4 4"/>`;
+ s+=T(30+wr-8,216,'o que de fato levou',{a:'end',s:11.5,f:'#E8EEF4',c:'fade2'});
+ s+=T(30,332,`sub-reserva de ${a.real-a.prev[1]} minutos na parada mais cara da fábrica`,{s:12.5,w:600,f:'#F4ED45'});
+ return s+`</svg>`}
+
+/* ── amplitudes: quem grita mais alto ─────────────────────────── */
+function escalas(){const W=540,H=300,pad=134;let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ const mx=Math.log10(40000);
+ D.ampl.forEach((a,i)=>{const y=40+i*56,w=Math.log10(Math.max(a[1],1.2))/mx*(W-pad-96);
+  s+=T(pad-12,y+19,a[0],{a:'end',s:12.5,ff:MONO});
+  s+=`<rect class="growx" style="animation-delay:${(.35+i*.1).toFixed(2)}s" x="${pad}" y="${y}" width="${w.toFixed(0)}" height="27" rx="3" fill="${spectral(1-i*0.3)}" opacity=".9"/>`;
+  s+=T(pad+w+9,y+19,a[1].toLocaleString('pt-BR'),{s:13,w:600,f:spectral(1-i*0.3)})});
+ s+=T(pad,H-18,'escala logarítmica — senão as três de baixo desapareceriam',{s:11.5});
+ return s+`</svg>`}
+
+/* ── K-means com e sem escalonar ──────────────────────────────── */
+function kmeans(){const W=580,H=300,pw=258,pad=40;
+ const cores=['#9168D6','#2FB89A','#B5DC4A'];
+ let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ [0,1].forEach(k=>{const ox=14+k*(pw+34);
+  s+=T(ox+pw/2,22,k?'COM escalonamento':'SEM escalonar',{a:'middle',s:12.5,w:600,f:k?'#2FB89A':'#F4ED45'});
+  s+=LN(ox+pad,H-46,ox+pw,H-46,{})+LN(ox+pad,36,ox+pad,H-46,{});
+  D.km.forEach((p,i)=>{const x=ox+pad+(p[0]-8000)/33500*(pw-pad-8), y=H-46-(p[1]-2.4)/6.8*(H-92);
+   s+=`<circle class="pop" style="--i:${i*0.05}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.4" fill="${cores[k?p[3]:p[2]]}" opacity=".9"/>`});
+  s+=T(ox+pad+(pw-pad)/2,H-28,'horas de uso',{a:'middle',s:11});
+  s+=T(ox+8,H-56,'vib',{s:10.5})});
+ s+=T(W/2,H-8,'sem escalonar, o agrupamento fatia só por horas de uso — a vibração some',{a:'middle',s:11.5,f:'#F4ED45'});
+ return s+`</svg>`}
+
+/* ── a subida da vibração ─────────────────────────────────────── */
+function subida(){const W=560,H=340,pad=54;const n=D.subida.length;
+ const X=i=>pad+i*(W-pad-30)/(n-1), Y=v=>H-pad-(v-3.2)/5.2*(H-pad-40);
+ let s=`<svg viewBox="0 0 ${W} ${H}">`+eixos(W,H,pad,'paradas da prensa P-12, em ordem','vibração (mm/s)');
+ let dm='';D.subida.forEach((p,i)=>{if(p[2]!==null)dm+=(dm?' L ':'M ')+`${X(i).toFixed(1)} ${Y(p[2]).toFixed(1)}`});
+ s+=`<path class="draw d2" pathLength="1" d="${dm}" fill="none" stroke="#5E7186" stroke-width="1.8" stroke-dasharray="1"/>`;
+ let dv='';D.subida.forEach((p,i)=>{dv+=(i?' L ':'M ')+`${X(i).toFixed(1)} ${Y(p[1]).toFixed(1)}`});
+ s+=`<path class="draw" pathLength="1" d="${dv}" fill="none" stroke="#4F86C6" stroke-width="2.2"/>`;
+ let imax=0,vmax=-9;D.subida.forEach((p,i)=>{if(p[2]!==null&&p[1]-p[2]>vmax){vmax=p[1]-p[2];imax=i}});
+ D.subida.forEach((p,i)=>{s+=`<circle class="pop" style="--i:${i*0.14}" cx="${X(i).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="${i===imax?6.5:4}" fill="${i===imax?'#F4ED45':'#4F86C6'}"${i===imax?' filter="url(#glow)"':''}/>`});
+ s+=LN(X(imax),Y(D.subida[imax][2]),X(imax),Y(D.subida[imax][1]),{c:'draw d3',s:'#F4ED45',w:2.4});
+ s+=T(X(imax)-10,Y(D.subida[imax][1])-14,`subiu ${vmax.toFixed(2)} mm/s de uma vez`,{a:'end',s:12,w:600,f:'#F4ED45',c:'fade2'});
+ s+=T(W-24,H-pad-8,'cinza: média das 3 paradas anteriores',{a:'end',s:11,f:'#5E7186',c:'fade2'});
+ return s+`</svg>`}
+
+/* ── o termômetro nas três fronteiras ─────────────────────────── */
+function termometro(){const W=560,H=320;const t=D.term;
+ const rot=['a base como veio','depois de CORRIGIR','depois de TRADUZIR'];
+ const cor=['#F4ED45','#2FB89A','#56C877'];
+ let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ t.forEach((v,i)=>{const y=44+i*84,w=v/26*(W-230);
+  s+=T(30,y-10,rot[i],{s:12.5,w:600,f:cor[i]});
+  s+=`<rect class="growx" style="animation-delay:${(.35+i*.16).toFixed(2)}s" x="30" y="${y}" width="${w.toFixed(0)}" height="36" rx="3" fill="${cor[i]}" opacity=".85"/>`;
+  s+=T(40+w,y+25,`${v.toFixed(1)} minutos de erro`,{s:15,w:600,f:cor[i]})});
+ s+=T(30,H-14,'mesmo modelo, mesma base — só o pré-processamento mudou',{s:12.5});
+ return s+`</svg>`}
+
+window.VIZ={capa,custo,histo,boxplot,disp,correl,faltas,imputa,tresflag,armadilha,escalas,kmeans,subida,termometro};
+</script>
+<script>
+const deck=document.getElementById('deck');
+document.querySelectorAll('[data-viz]').forEach(el=>{const fn=window.VIZ[el.dataset.viz];if(fn)el.innerHTML=fn();});
+const slides=[...deck.querySelectorAll('.slide')];let i=0;const tot=slides.length;
+document.getElementById('tot').textContent=String(tot).padStart(2,'0');
+const prog=document.getElementById('prog');
+function show(n){
+ const target=Math.max(0,Math.min(tot-1,n));
+ const dir=target>=i?1:-1;
+ if(target!==i){const out=slides[i];out.style.setProperty('--dir',dir);
+  out.classList.remove('active');out.classList.add('leaving');
+  setTimeout(()=>out.classList.remove('leaving'),440);}
+ i=target;const inc=slides[i];inc.style.setProperty('--dir',dir);inc.classList.add('active');
+ document.getElementById('cur').textContent=String(i+1).padStart(2,'0');prog.style.width=((i+1)/tot*100)+'%';
+ slides.forEach(s=>s.querySelectorAll('.answer').forEach(a=>a.classList.remove('show')));}
+function tg(){const a=slides[i].querySelector('.answer');if(a)a.classList.toggle('show');}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(i+1);}
+ else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();show(i-1);}
+ else if(e.key==='Home')show(0);else if(e.key==='End')show(tot-1);else if(e.key.toLowerCase()==='r')tg();});
+deck.addEventListener('click',e=>{if(e.target.closest('.answer'))return;show(e.clientX/window.innerWidth<0.32?i-1:i+1);});
+let tx=0;deck.addEventListener('touchstart',e=>tx=e.touches[0].clientX,{passive:true});
+deck.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>40)show(dx<0?i+1:i-1);});
+show(0);
+</script>
+</body></html>
